@@ -38,10 +38,10 @@ def run_pointnet_inference():
 @click.option("--step", "step", required=True, type=click.INT)
 @click.option("--navpath", "navpath", type=click.Path(exists=True, dir_okay=False))
 @click.option(
-    "--crop", "crop", is_flag=True, default=True, show_default=True, type=click.BOOL
+    "--crop/--no-crop", "crop", is_flag=True, default=True, show_default=True, type=click.BOOL
 )
 @click.option(
-    "--contrast",
+    "--contrast/--no-contrast",
     "increase_contrast",
     is_flag=True,
     default=True,
@@ -49,7 +49,7 @@ def run_pointnet_inference():
     type=click.BOOL,
 )
 @click.option(
-    "--denoisedepth",
+    "--denoisedepth/--no-denoisedepth",
     "denoise_depth",
     is_flag=True,
     default=True,
