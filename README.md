@@ -8,8 +8,8 @@ Just run this, I'll deal with a requirements file later. If anything is still mi
 installation just pip install it.
 
 ```shell
-git clone https://github.com/chinmay0301ucsd/barrelnet.git
-cd barrelnet
+git clone https://github.com/jerukan/barrels.git
+cd barrels
 git submodule update --init --recursive
 conda create --name barrels python=3.11
 conda activate barrels

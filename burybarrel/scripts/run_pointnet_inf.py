@@ -10,7 +10,7 @@ import numpy as np
 import torch.utils.data
 from tqdm import tqdm
 
-from burybarrel.utils import icp_translate
+from burybarrel.transform import icp_translate
 from burybarrel.barrelnet.barrelnet import BarrelNet
 from burybarrel.barrelnet.data import pts2inference_format
 from burybarrel.synthbarrel import (
