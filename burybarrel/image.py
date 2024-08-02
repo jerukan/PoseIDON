@@ -59,7 +59,7 @@ def get_local_plane_mask(bbox, expandratio_in, expandratio_out, W, H):
 def apply_clahe(img, clipLimit=None, tileGridSize=None):
     """
     Applies CLAHE to the image in CIELAB colorspace, as specified in the following link
-    
+
     https://stackoverflow.com/questions/39308030/how-do-i-increase-the-contrast-of-an-image-in-python-opencv
     """
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)

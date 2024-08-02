@@ -21,5 +21,64 @@ def run_pointnet_inference():
     run_pointnet_inf.run()
 
 
+@cli.command()
+@click.option(
+    "-c",
+    "--cfg",
+    "footage_cfg_path",
+    default="configs/footage.yaml",
+    show_default=True,
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+)
+@click.option("-n", "--name", "footage_name", required=True, type=click.STRING)
+@click.option(
+    "--fps", "fps", required=True, default=25, show_default=True, type=click.INT
+)
+@click.option("--step", "step", required=True, type=click.INT)
+@click.option("--navpath", "navpath", type=click.Path(exists=True, dir_okay=False))
+@click.option(
+    "--crop", "crop", is_flag=True, default=True, show_default=True, type=click.BOOL
+)
+@click.option(
+    "--contrast",
+    "increase_contrast",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    type=click.BOOL,
+)
+@click.option(
+    "--denoisedepth",
+    "denoise_depth",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    type=click.BOOL,
+)
+def get_footage_keyframes(
+    footage_cfg_path,
+    footage_name,
+    fps,
+    step,
+    navpath,
+    crop,
+    increase_contrast,
+    denoise_depth,
+):
+    from burybarrel.scripts import get_footage_keyframes
+
+    get_footage_keyframes.run(
+        footage_cfg_path,
+        footage_name,
+        step,
+        navpath=navpath,
+        crop=crop,
+        fps=fps,
+        increase_contrast=increase_contrast,
+        denoise_depth=denoise_depth,
+    )
+
+
 if __name__ == "__main__":
     cli()

@@ -1,17 +1,11 @@
 from pathlib import Path
 from typing import List
 
-import cv2
-import dataclass_array as dca
 import matplotlib as mpl
 from matplotlib import cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-from sklearn.neighbors import KDTree
-import torch
-import visu3d as v3d
 
 
 def cmapvals(vals, cmap="viridis", vmin=None, vmax=None):
