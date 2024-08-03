@@ -3,6 +3,8 @@
 import numpy as np
 import scipy.linalg
 
+from burybarrel.utils import random_unitvec3
+
 
 class Cylinder:
     """Everything cylinder."""
@@ -189,42 +191,19 @@ def monte_carlo_volume_ratio(npoints, x1, x2, r, planecoeffs=None):
     return ratio
 
 
-def random_unitvec3(n=1):
-    """
-    Generates uniformly distributed 3D unit vector.
-
-    Args:
-        n: number of vectors to generate
-
-    Returns:
-        nx3 vector
-    """
-    # apparently the standard multivariate normal distribution
-    # is rotation invariant, so its distributed uniformly
-    unnormxyzs = np.random.normal(0.0, 1.0, size=(n, 3))
-    xyzs = unnormxyzs / np.linalg.norm(unnormxyzs, axis=1)[..., None]
-    return xyzs
-
-
 def generate_oriented_barrel(r, h, npoints, sigma=0, zlims=None, includecap=True):
     """Uniformly random oriented barrel, with random height from cylinder centroid z=0"""
     if zlims is None:
         zlims = [0, 0]
-    cylax = random_unitvec3(1)[0]
-    # force vector to point up
-    if cylax[2] < 0:
-        cylax = -cylax
     heightchange = np.random.uniform(zlims[0], zlims[1])
-    bar_bot = -h * cylax / 2 + heightchange
-    bar_top = h * cylax / 2 + heightchange
+    cylax = random_unitvec3(1)[0]
+    cyl = Cylinder.from_axis(cylax, r, h, c=[0, 0, heightchange])
 
-    points_all = random_cylinder_surf(
-        bar_bot, bar_top, r, npoints, sigma=sigma, includecap=includecap
-    )
+    points_all = cyl.get_random_pts_surf(npoints, sigma=sigma, includecap=includecap)
 
     # filter out buried points
     points = points_all[points_all[:, 2] >= 0, :]
-    return points, points_all, cylax, heightchange
+    return points, points_all, cyl
 
 
 def get_cyl_endpoints(cylax, h, offset, axidx=2):

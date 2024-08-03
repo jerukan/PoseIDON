@@ -37,3 +37,20 @@ def denoise_nav_depth(df: pd.DataFrame, thresh=6, iters=1) -> pd.DataFrame:
         good2 = np.insert(good2, -1, True)
         valid_nav = valid_nav[good & good2]
     return valid_nav
+
+
+def random_unitvec3(n=1):
+    """
+    Generates uniformly distributed 3D unit vector.
+
+    Args:
+        n: number of vectors to generate
+
+    Returns:
+        nx3 vector
+    """
+    # apparently the standard multivariate normal distribution
+    # is rotation invariant, so its distributed uniformly
+    unnormxyzs = np.random.normal(0.0, 1.0, size=(n, 3))
+    xyzs = unnormxyzs / np.linalg.norm(unnormxyzs, axis=1)[..., None]
+    return xyzs

@@ -1,4 +1,4 @@
-# barrels (put paper name here or something)
+# Pose Estimation of Buried Deep-Sea Objects using 3D Vision Deep Learning Models
 
 You want barrels? We got barrels.
 
@@ -31,5 +31,13 @@ python -m burybarrel --help
 Running them:
 
 ```shell
-python -m burybarrel script_name [ARGS]
+python -m burybarrel script-name [ARGS]
 ```
+
+### Long running scripts in the background
+
+```shell
+nohup python -m burybarrel script-name [ARGS] &
+```
+
+Output will go to `nohup.out`.

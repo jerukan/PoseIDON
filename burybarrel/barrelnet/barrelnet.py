@@ -1,3 +1,4 @@
+import numpy as np
 import torch.nn as nn
 import torch.utils.data
 import torch.nn.functional as F
@@ -7,6 +8,7 @@ from burybarrel.barrelnet.pointnet_utils import (
     PointNetEncoder,
     feature_transform_reguliarzer,
 )
+from burybarrel.barrelnet.data import pts2inference_format
 
 
 class BarrelNet(nn.Module):
@@ -45,3 +47,23 @@ class BarrelNet(nn.Module):
         )
         normal = normal / torch.linalg.norm(normal, dim=-1, keepdim=True)
         return radius, zshift, normal
+    
+    def predict_np(self, pts, height_radius_ratio, device="cuda", max_points=1000):
+        """
+        Generates cylinder predictions for numpy input and output.
+        
+        Args:
+            height_radius_ratio: ratio of height over radius
+        """
+        pts = torch.tensor(pts, device=device).float()
+        pts, scale = pts2inference_format(pts, max_points=max_points)
+        with torch.no_grad():
+            radius_pred, zshift_pred, axis_pred = self(pts)
+            radius_pred = radius_pred.cpu().numpy()[0]
+            zshift_pred = zshift_pred.cpu().numpy()[0]
+            axis_pred = axis_pred.cpu().numpy()[0]
+        axis_pred = axis_pred / np.linalg.norm(axis_pred)
+        r = scale * radius_pred
+        h = r * height_radius_ratio
+        z = zshift_pred * h
+        return axis_pred, r, h, z

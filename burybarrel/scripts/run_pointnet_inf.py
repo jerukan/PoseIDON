@@ -13,11 +13,7 @@ from tqdm import tqdm
 from burybarrel.transform import icp_translate
 from burybarrel.barrelnet.barrelnet import BarrelNet
 from burybarrel.barrelnet.data import pts2inference_format
-from burybarrel.synthbarrel import (
-    random_cylinder_surf,
-    monte_carlo_volume_ratio,
-    get_cyl_endpoints,
-)
+from burybarrel.synthbarrel import Cylinder
 
 
 def run():
@@ -41,54 +37,31 @@ def run():
 
     trialresults = []
     for i in tqdm(range(ntrials)):
-        # for i in tqdm(range(20)):
         results = {}
         cylnp = synthdict["pts"][i].numpy()
         axtruth = synthdict["axis_vectors"][i]
         rtruth = synthdict["radii"][i].numpy()
         # height in generated data is fixed at 1
         yoffsettruth = synthdict["burial_offsets"][i]
-        x1truth, x2truth = get_cyl_endpoints(axtruth, 1, yoffsettruth, axidx=1)
+        cyltruth = Cylinder.from_axis(axtruth, rtruth, 1, c=[0, yoffsettruth, 0])
+        
+        results["cyltruth"] = cyltruth
+        results["burialtruth"] = cyltruth.get_volume_ratio_monte(5000, planecoeffs=[0, 1, 0, 0])
 
-        results["axtruth"] = axtruth
-        results["rtruth"] = rtruth
-        results["yshifttruth"] = yoffsettruth
-        results["burialtruth"] = monte_carlo_volume_ratio(
-            5000, x1truth, x2truth, rtruth, planecoeffs=[0, 1, 0, 0]
-        )
-
-        cylnp = cylnp.astype(np.float32)
-        pts = torch.from_numpy(cylnp).cuda()
-        pts, scale = pts2inference_format(pts)
-        with torch.no_grad():
-            radius_pred, yshift_pred, axis_pred = pointnet(pts)
-            radius_pred = radius_pred.cpu().numpy()[0]
-            yshift_pred = yshift_pred.cpu().numpy()[0]
-            axis_pred = axis_pred.cpu().numpy()[0]
-        axis_pred = axis_pred / np.linalg.norm(axis_pred)
-        # scale predictions
-        h = 1
-        r = scale * radius_pred
-        y = yshift_pred * h
-        x1pred, x2pred = get_cyl_endpoints(axis_pred, h, y, axidx=1)
-        predsurfpts = random_cylinder_surf(x1pred, x2pred, r, 5000)
+        axis_pred, r, h, y = pointnet.predict_np(cylnp, height_radius_ratio=1/rtruth)
+        
+        cylpred = Cylinder.from_axis(axis_pred, r, h, c=[0, y, 0])
+        predsurfpts = cylpred.get_random_pts_surf(5000)
         translation = icp_translate(cylnp, predsurfpts, max_iters=5, ntheta=0, nphi=0)
-        x1pred -= translation
-        x2pred -= translation
-        c = (x1pred + x2pred) / 2
-        y = c[1]
-
-        results["axpred"] = axis_pred
-        results["rpred"] = r
-        results["yshiftpred"] = y
-        results["burialpred"] = monte_carlo_volume_ratio(
-            5000, x1pred, x2pred, r, planecoeffs=[0, 1, 0, 0]
-        )
+        cylpred = cylpred.translate(-translation)
+        
+        results["cylpred"] = cylpred
+        results["burialpred"] = cylpred.get_volume_ratio_monte(5000, planecoeffs=[0, 1, 0, 0])
 
         # print("ahAHSFHJKSADHJKFSDHJKDFSHJKFSAD")
         # print(axis_pred, r, h, y)
         # print(axtruth, rtruth, h, yoffsettruth / h)
-
+        
         trialresults.append(results)
 
         # print("TRUTH")
@@ -102,5 +75,5 @@ def run():
         # truthray = v3d.Ray(pos=[0,0,0], dir=cylax)
         # predray = v3d.Ray(pos=[0,0,0], dir=axis_pred)
         # v3d.make_fig([v3d.Point3d(p=cylnp), truthray, predray])
-    with open("results/pointnet_synth_results_icp.pkl", "wb") as f:
+    with open("results/pointnet_synth_results.pkl", "wb") as f:
         pickle.dump(trialresults, f)
