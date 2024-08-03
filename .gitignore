@@ -6,6 +6,7 @@ checkpoints/**
 !checkpoints/.gitkeep
 
 scratch.ipynb
+nohup.out
 
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
