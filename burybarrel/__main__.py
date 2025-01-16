@@ -31,12 +31,11 @@ def run_pointnet_inference():
     required=True,
     type=click.Path(exists=True, dir_okay=False),
 )
-@click.option("-n", "--name", "footage_name", required=True, type=click.STRING)
+@click.option("-n", "--name", "footage_name", required=True, type=click.STRING, help="Key name inside config YAML")
 @click.option(
     "--fps", "fps", required=True, default=25, show_default=True, type=click.INT
 )
-@click.option("--step", "step", required=True, type=click.INT)
-@click.option("--navpath", "navpath", type=click.Path(exists=True, dir_okay=False))
+@click.option("--step", "step", required=True, type=click.INT, help="Number of frames between each image")
 @click.option(
     "--crop/--no-crop", "crop", is_flag=True, default=True, show_default=True, type=click.BOOL
 )
@@ -48,6 +47,7 @@ def run_pointnet_inference():
     show_default=True,
     type=click.BOOL,
 )
+@click.option("--navpath", "navpath", type=click.Path(exists=True, dir_okay=False))
 @click.option(
     "--denoisedepth/--no-denoisedepth",
     "denoise_depth",
@@ -55,6 +55,7 @@ def run_pointnet_inference():
     default=True,
     show_default=True,
     type=click.BOOL,
+    help="Only used when navpath is provided; naively denoises depth data"
 )
 def get_footage_keyframes(
     footage_cfg_path,
