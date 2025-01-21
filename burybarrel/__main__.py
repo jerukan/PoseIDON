@@ -81,5 +81,27 @@ def get_footage_keyframes(
     )
 
 
+@cli.command()
+@click.option(
+    "-i",
+    "--imgdir",
+    "imgdir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+)
+@click.option("-p", "--prompt", "text_prompt", required=True, type=click.STRING)
+@click.option(
+    "-o",
+    "--outdir",
+    "outdir",
+    required=True,
+    type=click.Path(file_okay=False),
+)
+def create_masks(imgdir, text_prompt, outdir):
+    from burybarrel.scripts import create_masks
+
+    create_masks.run(imgdir, text_prompt, outdir)
+
+
 if __name__ == "__main__":
     cli()
