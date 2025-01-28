@@ -43,7 +43,7 @@ def run_pointnet_inference():
     "--contrast/--no-contrast",
     "increase_contrast",
     is_flag=True,
-    default=True,
+    default=False,
     show_default=True,
     type=click.BOOL,
 )
