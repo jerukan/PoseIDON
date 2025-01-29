@@ -40,20 +40,19 @@ def run_pointnet_inference():
     "--crop/--no-crop", "crop", is_flag=True, default=True, show_default=True, type=click.BOOL
 )
 @click.option(
-    "--contrast/--no-contrast",
+    "--contrast",
     "increase_contrast",
     is_flag=True,
     default=False,
-    show_default=True,
     type=click.BOOL,
+    help="If provided, increases contrast of the images",
 )
 @click.option("--navpath", "navpath", type=click.Path(exists=True, dir_okay=False))
 @click.option(
-    "--denoisedepth/--no-denoisedepth",
+    "--denoisedepth",
     "denoise_depth",
     is_flag=True,
-    default=True,
-    show_default=True,
+    default=False,
     type=click.BOOL,
     help="Only used when navpath is provided; naively denoises depth data"
 )
@@ -97,10 +96,34 @@ def get_footage_keyframes(
     required=True,
     type=click.Path(file_okay=False),
 )
-def create_masks(imgdir, text_prompt, outdir):
+@click.option(
+    "--boxthresh",
+    "box_threshold",
+    default=0.3,
+    show_default=True,
+    type=click.FLOAT,
+)
+@click.option(
+    "--textthresh",
+    "text_threshold",
+    default=0.25,
+    show_default=True,
+    type=click.FLOAT,
+)
+@click.option(
+    "--closekernel",
+    "closekernelsize",
+    default=0,
+    type=click.INT,
+    show_default=True,
+    help="n x n kernel size for morphological closing operation; set to 0 for no closing",
+)
+def create_masks(imgdir, text_prompt, outdir, box_threshold, text_threshold, closekernelsize):
     from burybarrel.scripts import create_masks
 
-    create_masks.run(imgdir, text_prompt, outdir)
+    create_masks.run(
+        imgdir, text_prompt, outdir, box_threshold=box_threshold, text_threshold=text_threshold, closekernelsize=closekernelsize
+    )
 
 
 if __name__ == "__main__":
