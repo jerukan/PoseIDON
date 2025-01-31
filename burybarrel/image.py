@@ -69,3 +69,53 @@ def apply_clahe(img, clipLimit=None, tileGridSize=None):
     limg = cv2.merge((cl, a, b))
     final = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
     return final
+
+
+def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1) -> np.ndarray:
+    """
+    A modified version of v3d.Camera.render() to allow the sizes of each of the
+    points in a point cloud to be changed, since you literally couldn't see
+    anything for sparse point clouds renders (each points is literally a pixel).
+    Currently doesn't scale point size for distance. I may implement this later.
+
+    Project 3d points to the camera screen.
+
+    Args:
+      points: 3d points.
+
+    Returns:
+      img: The projected 3d points.
+    """
+    # TODO(epot): Support float colors and make this differentiable!
+    if not isinstance(points, v3d.Point3d):
+        raise TypeError(
+            f'Camera.render expect `v3d.Point3d` as input. Got: {points}.'
+        )
+
+    # Project 3d -> 2d coordinates
+    points2d = cam.px_from_world @ points
+
+    # Flatten pixels
+    points2d = points2d.flatten()
+    px_coords = points2d.p
+    rgb = points2d.rgb
+
+    # Compute the valid coordinates
+    w_coords = px_coords[..., 0]
+    h_coords = px_coords[..., 1]
+    valid_coords_mask = (
+        (0 <= h_coords)
+        & (h_coords < cam.h - 1)
+        & (0 <= w_coords)
+        & (w_coords < cam.w - 1)
+        & (points2d.depth[..., 0] > 0)  # Filter points behind the camera
+    )
+    rgb = rgb[valid_coords_mask]
+    px_coords = px_coords[valid_coords_mask]
+    px_coords = np.astype(np.round(px_coords), np.int32)
+
+    # px_coords is (h, w)
+    img = np.zeros((*cam.resolution, 3), dtype=np.uint8)
+    for i, coord in enumerate(px_coords):
+        img = cv2.circle(img, coord, radius, tuple(int(ch) for ch in rgb[i]), -1)
+    return img

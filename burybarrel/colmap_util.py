@@ -4,10 +4,12 @@ import shutil
 import struct
 from typing import Union, List, Tuple
 
+import dataclass_array as dca
 import matplotlib.pyplot as plt
 import numpy as np
 import pycolmap
 import sqlite3
+import visu3d as v3d
 
 
 def get_images(database_path: Union[str, Path]) -> List[pycolmap.Image]:
@@ -49,6 +51,10 @@ def get_features(
 
 
 def get_pc(reconstruction: pycolmap.Reconstruction) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Returns:
+        points in 3d space, RGB color for each point
+    """
     pts = []
     cols = []
     for pair in reconstruction.points3D.items():
@@ -57,6 +63,28 @@ def get_pc(reconstruction: pycolmap.Reconstruction) -> Tuple[np.ndarray, np.ndar
     pts = np.array(pts)
     cols = np.array(cols)
     return pts, cols
+
+
+def get_cams_v3d(reconstruction: pycolmap.Reconstruction, sortkey="name") -> v3d.Camera:
+    """
+    Retrieves camera parameters from every image in a reconstruction as a visu3d Camera
+    dataclass array. COLMAP has these cameras out of order, so it's probably best to
+    sort by the filename of the image.
+    """
+    imgs = list(reconstruction.images.values())
+    if sortkey is None:
+        pass
+    elif sortkey == "name":
+        imgs = sorted(imgs, key=lambda x: x.name)
+    else:
+        raise ValueError(f"sortkey='{sortkey}' is invalid or hasn't been implemented yet")
+    camlisttmp: List[v3d.Camera] = []
+    for img in imgs:
+        spec = v3d.PinholeCamera.from_focal(resolution=(img.camera.height, img.camera.width), focal_in_px=img.camera.focal_length)
+        T = v3d.Transform.from_matrix(img.cam_from_world.matrix()).inv
+        camlisttmp.append(v3d.Camera(spec=spec, world_from_cam=T))
+    cams: v3d.Camera = dca.stack(camlisttmp)
+    return cams
 
 
 """
