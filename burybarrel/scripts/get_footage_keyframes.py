@@ -54,10 +54,10 @@ def run(
             frame = apply_clahe(frame, clipLimit=2.0, tileGridSize=(8, 8))
         if crop:
             cropped = frame[bbox[1] : bbox[1] + bbox[3], bbox[0] : bbox[0] + bbox[2]]
-            fname = f"cropped{str(cnt).zfill(4)}.jpg"
+            fname = f"cropped{str(cnt).zfill(4)}.png"
         else:
             cropped = frame
-            fname = f"uncropped{str(cnt).zfill(4)}.jpg"
+            fname = f"uncropped{str(cnt).zfill(4)}.png"
         fnames.append(fname)
         cv2.imwrite(str(outdir / fname), cropped)
         cnt += 1
