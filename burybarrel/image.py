@@ -71,7 +71,7 @@ def apply_clahe(img, clipLimit=None, tileGridSize=None):
     return final
 
 
-def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1) -> np.ndarray:
+def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1, background=None) -> np.ndarray:
     """
     A modified version of v3d.Camera.render() to allow the sizes of each of the
     points in a point cloud to be changed, since you literally couldn't see
@@ -82,6 +82,7 @@ def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1) -> np.ndarray:
 
     Args:
       points: 3d points.
+      background: background image to use; must be same dimensions as camera width/height
 
     Returns:
       img: The projected 3d points.
@@ -116,6 +117,11 @@ def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1) -> np.ndarray:
 
     # px_coords is (h, w)
     img = np.zeros((*cam.resolution, 3), dtype=np.uint8)
+    if background is not None:
+        if background.shape[0] == cam.resolution[0] and background.shape[1] == cam.resolution[1]:
+            img[...] = background
+        else:
+            raise ValueError(f"Invalid background img shape {background.shape}")
     for i, coord in enumerate(px_coords):
         img = cv2.circle(img, coord, radius, tuple(int(ch) for ch in rgb[i]), -1)
     return img
