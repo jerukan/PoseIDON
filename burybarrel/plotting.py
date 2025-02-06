@@ -68,3 +68,27 @@ def get_ray_trace(
         ),
         name="",
     )
+
+
+def get_axes_traces(transform, scale=1.0, linewidth=1.0):
+    if isinstance(transform, np.ndarray):
+        tshape = transform.shape
+        if len(tshape) == 3 and tshape[1] == 4 and tshape[2] == 4:
+            transform = v3d.Transform.from_matrix(transform)
+        else:
+            raise ValueError("bad")
+    xcol = "#d91616"
+    ycol = "#22eb17"
+    zcol = "#1929e0"
+    traces = []
+    origin = transform @ np.array([[0.0, 0, 0]])
+    x = transform @ np.array([[1.0, 0, 0]])
+    y = transform @ np.array([[0.0, 1, 0]])
+    z = transform @ np.array([[0.0, 0, 1]])
+    for i, singleorgn in enumerate(origin):
+        traces.extend([
+            get_ray_trace(singleorgn, x[i] - singleorgn, length=scale, width=linewidth, color=xcol),
+            get_ray_trace(singleorgn, y[i] - singleorgn, length=scale, width=linewidth, color=ycol),
+            get_ray_trace(singleorgn, z[i] - singleorgn, length=scale, width=linewidth, color=zcol)
+        ])
+    return traces
