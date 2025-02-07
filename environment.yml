@@ -26,5 +26,6 @@ dependencies:
       - tqdm==4.67.1
       - transforms3d==0.4.2
       - trimesh==4.5.3
+      - vispy==0.14.3
       - git+https://github.com/google-research/visu3d.git
 prefix: /opt/miniconda3/envs/barrels
