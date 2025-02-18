@@ -22,16 +22,10 @@ def run_pointnet_inference():
 
 
 @cli.command()
-@click.option(
-    "-c",
-    "--cfg",
-    "footage_cfg_path",
-    default="configs/footage.yaml",
-    show_default=True,
-    required=True,
-    type=click.Path(exists=True, dir_okay=False),
-)
-@click.option("-n", "--name", "footage_name", required=True, type=click.STRING, help="Key name inside config YAML")
+@click.option("-i", "--input", "input_vid", required=True, type=click.Path(exists=True, dir_okay=False), help="input video path")
+@click.option("-o", "--output", "output_dir", required=False, type=click.Path(file_okay=False), help="output dir")
+@click.option("-t", "--time", "start_time", required=False, type=click.STRING, help="start time of the video")
+@click.option("--tz", "timezone", required=False, type=click.STRING, help="timezone")
 @click.option(
     "--fps", "fps", required=True, default=25, show_default=True, type=click.INT
 )
@@ -57,8 +51,10 @@ def run_pointnet_inference():
     help="Only used when navpath is provided; naively denoises depth data"
 )
 def get_footage_keyframes(
-    footage_cfg_path,
-    footage_name,
+    input_vid,
+    output_dir,
+    start_time,
+    timezone,
     fps,
     step,
     navpath,
@@ -69,9 +65,11 @@ def get_footage_keyframes(
     from burybarrel.scripts import get_footage_keyframes
 
     get_footage_keyframes.run(
-        footage_cfg_path,
-        footage_name,
+        input_vid,
         step,
+        output_dir=output_dir,
+        start_time=start_time,
+        timezone=timezone,
         navpath=navpath,
         crop=crop,
         fps=fps,
