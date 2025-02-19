@@ -124,5 +124,68 @@ def create_masks(imgdir, text_prompt, outdir, box_threshold, text_threshold, clo
     )
 
 
+@cli.command()
+@click.option(
+    "-m",
+    "--modelpath",
+    "model_path",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+)
+@click.option(
+    "-i",
+    "--imgdir",
+    "imgdir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+)
+@click.option(
+    "-o",
+    "--outdir",
+    "outdir",
+    required=True,
+    type=click.Path(file_okay=False),
+)
+@click.option(
+    "-d",
+    "--device",
+    "device",
+    type=click.STRING,
+)
+def reconstruct_dust3r(model_path, imgdir, outdir, device):
+    from burybarrel.scripts import reconstruct_dust3r
+
+    reconstruct_dust3r.run(model_path, imgdir, outdir, device=device)
+
+
+@cli.command()
+@click.option(
+    "-i",
+    "--imgdir",
+    "imgdir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+)
+@click.option(
+    "-o",
+    "--outdir",
+    "outdir",
+    required=True,
+    type=click.Path(file_okay=False),
+)
+@click.option(
+    "--overwrite",
+    "overwrite",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Overwrite existing COLMAP database if it exists (it complains by default)",
+)
+def reconstruct_colmap(imgdir, outdir, overwrite):
+    from burybarrel.scripts import reconstruct_colmap
+
+    reconstruct_colmap.run(imgdir, outdir, overwrite=overwrite)
+
+
 if __name__ == "__main__":
     cli()
