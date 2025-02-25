@@ -84,7 +84,9 @@ def run(img_dir, out_dir, overwrite=False):
             "snapshot_path": str(reconstr_snapshot_dir),
         }
     )
-    print(maps)
+    print(f"All reconstructed maps: {maps}")
+    if len(maps) == 0:
+        raise RuntimeError("No valid sparse reconstruction from COLMAP.")
     # dense reconstruction
     if overwrite and mvs_dir.exists():
         shutil.rmtree(mvs_dir)

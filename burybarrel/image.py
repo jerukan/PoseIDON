@@ -1,6 +1,33 @@
+from pathlib import Path
+
 import cv2
 import numpy as np
+from PIL import Image
 import visu3d as v3d
+
+
+def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False):
+    """
+    So I don't have to rewrite this in every notebook.
+
+    Returns:
+        (imgpaths, imgs): list of img paths and list of loaded images
+    """
+    imgdir = Path(imgdir)
+    if not imgdir.exists():
+        raise FileNotFoundError(f"Directory {imgdir} not found.")
+    if patterns is None:
+        patterns = ["*.png", "*.jpg", "*.jpeg"]
+    imgpaths = []
+    for pattern in patterns:
+        imgpaths.extend(list(imgdir.glob(pattern)))
+    if sortnames:
+        imgpaths = sorted(imgpaths)
+    if asarray:
+        imgs = np.array([cv2.cvtColor(cv2.imread(str(imgpath)), cv2.COLOR_BGR2RGB) for imgpath in imgpaths])
+    else:
+        imgs = [Image.open(imgpath) for imgpath in imgpaths]
+    return imgpaths, imgs
 
 
 def segment_pc_from_mask(pc: v3d.Point3d, mask, v3dcam: v3d.Camera):
