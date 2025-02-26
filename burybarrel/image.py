@@ -5,6 +5,8 @@ import numpy as np
 from PIL import Image
 import visu3d as v3d
 
+from burybarrel.utils import ext_pattern
+
 
 def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False):
     """
@@ -17,7 +19,7 @@ def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False):
     if not imgdir.exists():
         raise FileNotFoundError(f"Directory {imgdir} not found.")
     if patterns is None:
-        patterns = ["*.png", "*.jpg", "*.jpeg"]
+        patterns = [ext_pattern("png"), ext_pattern("jpg"), ext_pattern("jpeg")]
     imgpaths = []
     for pattern in patterns:
         imgpaths.extend(list(imgdir.glob(pattern)))

@@ -8,6 +8,15 @@ import numpy as np
 import pandas as pd
 
 
+def ext_pattern(extension):
+    """
+    Because I want to use glob instead of looping through files.
+
+    Example: "jpg" -> "*.[jJ][pP][gG]"
+    """
+    return "*." + "".join("[%s%s]" % (e.lower(), e.upper()) for e in extension)
+
+
 def cmapvals(vals, cmap="viridis", vmin=None, vmax=None):
     """Maps a list of values to corresponding RGB values in a matplotlib colormap."""
     cmap = plt.get_cmap(cmap)

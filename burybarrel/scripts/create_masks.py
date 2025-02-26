@@ -1,10 +1,12 @@
 from pathlib import Path
+from typing import List
 
 import cv2
 import dill as pickle
 from lang_sam import LangSAM
 import numpy as np
 from PIL import Image
+from shapely import Polygon
 from tqdm import tqdm
 
 from burybarrel.langsam_utils import display_image_with_masks
@@ -19,9 +21,11 @@ def run(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=0.25, clo
     maskdebug_dir.mkdir(parents=True, exist_ok=True)
     langsam_model = LangSAM()
 
+    # each box is [x_min, y_min, x_max, y_max]
     bboxes = []
     for i, imgpath in enumerate(tqdm(imgpaths)):
         image_pil = Image.open(imgpath).convert("RGB")
+        w, h = image_pil.size
 
         results = langsam_model.predict(
             [image_pil], [text_prompt], box_threshold=box_threshold, text_threshold=text_threshold
@@ -45,11 +49,33 @@ def run(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=0.25, clo
             
             # jank workaround for excluding those masks that are just supersets
             # of the barrel itself
-            boxareas = [(box[2] - box[0]) * (box[3] - box[1]) for box in boxes]
-            # minarea_idx = np.argmin(boxareas)
+            # reminder: [x_min, y_min, x_max, y_max]
             # as it turns out jellyfish are detected for some reason, and they are smaller
             # welp, just take the first one, it's usually the barrel anyway right?
-            minarea_idx = 0
+            rects = np.array([Polygon([(box[0], box[1]), (box[2], box[1]), (box[2], box[3]), (box[0], box[3])]) for box in boxes])
+            boxareas = np.array([rect.area for rect in rects])
+            validmask = np.ones(len(rects), dtype=bool)
+            for i in range(len(rects)):
+                if not validmask[i]:
+                    continue
+                if rects[i].area > 0.8 * w * h:
+                    # specifically for this data, objects should not cover more than 80% of the
+                    # image (in fact, it probably should not cover more than 20%)
+                    # this is specifically for those goofy bounding boxes that cover the whole
+                    # image
+                    validmask[i] = False
+                    continue
+                for j in range(i+1, len(rects)):
+                    # remove superset bounding boxes
+                    if not validmask[j]:
+                        continue
+                    if rects[i].contains(rects[j]):
+                        validmask[i] = False
+                    elif rects[j].contains(rects[i]):
+                        validmask[j] = False
+            # best_idx = np.argmin(boxareas)
+            maxvalididx = np.argmax(boxareas[validmask])
+            best_idx = np.arange(len(rects))[validmask][maxvalididx]
 
             # save masks
             for i, mask_np in enumerate(masks_np):
@@ -59,8 +85,8 @@ def run(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=0.25, clo
                 mask_image = Image.fromarray((mask_np * 255).astype(np.uint8))
                 mask_image.save(mask_path)
             
-            bbox = boxes[minarea_idx]
-            mask_np = masks_np[minarea_idx]
+            bbox = boxes[best_idx]
+            mask_np = masks_np[best_idx]
             mask_path = outdir / f"{imgpath.stem}.png"
             mask_image = Image.fromarray((mask_np * 255).astype(np.uint8))
             mask_image.save(mask_path)

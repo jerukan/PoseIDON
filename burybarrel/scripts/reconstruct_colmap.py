@@ -39,6 +39,7 @@ def run(img_dir, out_dir, overwrite=False):
         camera_model=camera.model.name,
         reader_options={"camera_model": camera.model.name, "camera_params": camera.params_to_string()},
         sift_options={
+            # DSP-SIFT is presumably better
             "domain_size_pooling": True,
             "edge_threshold":  5.0,
             "peak_threshold":  1 / 200,

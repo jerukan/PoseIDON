@@ -15,6 +15,7 @@ from dust3r.image_pairs import make_pairs
 from dust3r.cloud_opt import global_aligner, GlobalAlignerMode
 
 from burybarrel.dust3r_utils import save_dust3r_outs, read_dust3r, resize_to_dust3r
+from burybarrel.image import imgs_from_dir
 
 
 def run(
@@ -27,7 +28,7 @@ def run(
         device = "cuda" if torch.cuda.is_available() else "cpu"
     model_path = Path(model_path)
     dust3r_model = AsymmetricCroCo3DStereo.from_pretrained(model_path).to(device)
-    imgpaths = sorted(list(Path(img_dir).glob("*.jpg")) + list(Path(img_dir).glob("*.png")))
+    imgpaths, _ = imgs_from_dir(img_dir)
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
     dust3rout_path = out_dir / "dust3r_out.pth"
