@@ -14,19 +14,6 @@ import burybarrel.colmap_util as cutil
 
 def run(img_dir, out_dir, overwrite=False):
     ### colmap code ###
-    # camera = pycolmap.Camera(
-    #     model="RADIAL",
-    #     width=1920,
-    #     height=875,
-    #     params=[1246, 960, 420, -0.123, -0.015]
-    # )
-    # camera = pycolmap.Camera(
-    #     model="SIMPLE_PINHOLE",
-    #     width=1920,
-    #     height=875,
-    #     # params=[1246, 960, 420],
-    #     params=[500, 960, 420],
-    # )
     img_dir = Path(img_dir)
     out_dir = Path(out_dir)
     colmap_out = out_dir / "colmap-out"
@@ -45,7 +32,6 @@ def run(img_dir, out_dir, overwrite=False):
         width=1920,
         height=875,
         params=[1246, 1246, 960, 420],
-        # params=[500, 500, 960, 420],
     )
     pycolmap.extract_features(
         database_path,
@@ -78,10 +64,22 @@ def run(img_dir, out_dir, overwrite=False):
         options={
             "ba_global_function_tolerance": 1e-2,
             "ba_local_function_tolerance": 1e-2,
-            "init_num_trials": 1000,
+            "init_num_trials": 500,
             "ba_global_max_num_iterations": 200,
             "snapshot_images_freq": 1,
             "snapshot_path": str(reconstr_snapshot_dir),
+            # just double all the thresholds lol
+            # surely this won't go horribly
+            "mapper": {
+                "abs_pose_max_error": 24.0,
+                "abs_pose_min_inlier_ratio": 0.1,
+                "abs_pose_min_num_inliers": 10,
+                "filter_max_reproj_error": 8.0,
+                "filter_min_tri_angle": 3.0,
+                "init_max_error": 8.0,
+                "init_max_reg_trials": 4,
+                "init_min_num_inliers": 30,
+            }
         }
     )
     print(f"All reconstructed maps: {maps}")
