@@ -6,10 +6,13 @@ import subprocess
 import matplotlib.pyplot as plt
 import numpy as np
 import pycolmap
+import quaternion
 import sqlite3
 import visu3d as v3d
+import yaml
 
 import burybarrel.colmap_util as cutil
+from burybarrel.image import imgs_from_dir, save_v3dcams_yaml
 
 
 def run(img_dir, out_dir, overwrite=False):
@@ -21,17 +24,19 @@ def run(img_dir, out_dir, overwrite=False):
     colmap_out.mkdir(parents=True, exist_ok=True)
     openmvs_out.mkdir(parents=True, exist_ok=True)
     database_path = colmap_out / "database.db"
-    reconstr_snapshot_dir = colmap_out / "reconstr-snapshots"
-    reconstr_snapshot_dir.mkdir(parents=True, exist_ok=True)
+    camposes_path = out_dir / "cam_poses.yaml"
     if overwrite and database_path.exists():
         database_path.unlink()
     mvs_dir = colmap_out / "mvs"
 
+    imgpaths, imgs = imgs_from_dir(img_dir)
+    # assume same size for all images (surely colmap will error if not)
+    w, h = imgs[0].size
     camera = pycolmap.Camera(
         model="PINHOLE",
-        width=1920,
-        height=875,
-        params=[1246, 1246, 960, 420],
+        width=w,
+        height=h,
+        params=[1246, 1246, w / 2, h / 2],
     )
     pycolmap.extract_features(
         database_path,
@@ -67,8 +72,6 @@ def run(img_dir, out_dir, overwrite=False):
             "ba_local_function_tolerance": 1e-2,
             "init_num_trials": 500,
             "ba_global_max_num_iterations": 200,
-            "snapshot_images_freq": 1,
-            "snapshot_path": str(reconstr_snapshot_dir),
             # just double all the thresholds lol
             # surely this won't go horribly
             "mapper": {
@@ -86,15 +89,20 @@ def run(img_dir, out_dir, overwrite=False):
     print(f"All reconstructed maps: {maps}")
     if len(maps) == 0:
         raise RuntimeError("No valid sparse reconstruction from COLMAP.")
+
     # dense reconstruction
     if overwrite and mvs_dir.exists():
         shutil.rmtree(mvs_dir)
+    # not sure the pattern colmap stores sparse maps, I presume "0" is the best
     pycolmap.undistort_images(
         mvs_dir,
         colmap_out / "0",
         img_dir,
         output_type="COLMAP",
     )
+    reconstruction = pycolmap.Reconstruction(colmap_out / "0")
+    cams, camnames = cutil.get_cams_v3d(reconstruction, return_names=True)
+    save_v3dcams_yaml(cams, [img_dir / name for name in camnames], camposes_path)
 
     ### openmvs code ###
     mvs_rel = os.path.relpath(mvs_dir, openmvs_out)  # openmvs converts colmap stuff to relative paths

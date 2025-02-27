@@ -1,9 +1,16 @@
+"""
+Everything images and cameras.
+"""
 from pathlib import Path
+from typing import List, Union
 
 import cv2
+import dataclass_array as dca
 import numpy as np
 from PIL import Image
+import quaternion
 import visu3d as v3d
+import yaml
 
 from burybarrel.utils import ext_pattern
 
@@ -154,3 +161,60 @@ def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1, background=None) 
     for i, coord in enumerate(px_coords):
         img = cv2.circle(img, coord, radius, tuple(int(ch) for ch in rgb[i]), -1)
     return img
+
+
+def save_v3dcams_yaml(cams: v3d.Camera, imgpaths: List[Union[str, Path]], path: Union[str, Path]):
+    """
+    {
+        "img_path": str,
+        "R": [w, x, y, z],
+        "t": [x, y, z],
+        "K": 3x3 float array,
+        "width": int,
+        "height": int,
+    }
+    """
+    camposedata = []
+    for cam, imgpath in zip(cams, imgpaths):
+        quat = quaternion.from_rotation_matrix(cam.world_from_cam.R)
+        t = cam.world_from_cam.t
+        singlepose = {
+            "img_path": str(imgpath),
+            "R": quaternion.as_float_array(quat).tolist(),
+            "t": t.tolist(),
+            "K": cam.spec.K.tolist(),
+            "width": cam.spec.w,
+            "height": cam.spec.h,
+        }
+        camposedata.append(singlepose)
+    with open(path, "wt") as f:
+        yaml.dump(camposedata, f)
+    return camposedata
+
+
+def load_v3dcams_yaml(path):
+    """
+    {
+        "img_path": str,
+        "R": [w, x, y, z],
+        "t": [x, y, z],
+        "K": 3x3 float array,
+        "width": int,
+        "height": int,
+    }
+    """
+    with open(path, "rt") as f:
+        camposedata = yaml.safe_load(f)
+    camposedata = sorted(camposedata, key=lambda x: x["img_path"])
+    camlisttmp: List[v3d.Camera] = []
+    imgpaths: List[Path] = []
+    for i, posedata in enumerate(camposedata):
+        spec = v3d.PinholeCamera(K=posedata["K"], resolution=(posedata["height"], posedata["width"]))
+        quat = quaternion.from_float_array(posedata["R"])
+        R = quaternion.as_rotation_matrix(quat)
+        t = np.array(posedata["t"])
+        T = v3d.Transform(R=R, t=t)
+        camlisttmp.append(v3d.Camera(spec=spec, world_from_cam=T))
+        imgpaths.append(Path(posedata["img_path"]))
+    cams: v3d.Camera = dca.stack(camlisttmp)
+    return cams, imgpaths

@@ -65,13 +65,13 @@ def get_pc(reconstruction: pycolmap.Reconstruction) -> Tuple[np.ndarray, np.ndar
     return pts, cols
 
 
-def get_cams_v3d(reconstruction: pycolmap.Reconstruction, sortkey="name") -> v3d.Camera:
+def get_cams_v3d(reconstruction: pycolmap.Reconstruction, sortkey="name", return_names=False) -> v3d.Camera:
     """
     Retrieves camera parameters from every image in a reconstruction as a visu3d Camera
     dataclass array. COLMAP has these cameras out of order, so it's probably best to
     sort by the filename of the image.
     """
-    imgs = list(reconstruction.images.values())
+    imgs: List[pycolmap.Image] = list(reconstruction.images.values())
     if sortkey is None:
         pass
     elif sortkey == "name":
@@ -79,11 +79,15 @@ def get_cams_v3d(reconstruction: pycolmap.Reconstruction, sortkey="name") -> v3d
     else:
         raise ValueError(f"sortkey='{sortkey}' is invalid or hasn't been implemented yet")
     camlisttmp: List[v3d.Camera] = []
+    names: List[str] = []
     for img in imgs:
         spec = v3d.PinholeCamera.from_focal(resolution=(img.camera.height, img.camera.width), focal_in_px=img.camera.focal_length)
         T = v3d.Transform.from_matrix(img.cam_from_world.matrix()).inv
         camlisttmp.append(v3d.Camera(spec=spec, world_from_cam=T))
+        names.append(img.name)
     cams: v3d.Camera = dca.stack(camlisttmp)
+    if return_names:
+        return cams, names
     return cams
 
 
