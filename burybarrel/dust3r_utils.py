@@ -73,13 +73,13 @@ def save_dust3r_outs(scene, savepath):
     return out_dict
 
 
-def read_dust3r(path):
+def read_dust3r(path, flatten=True):
     """
     Reads dust3r pickled dictionary.
 
     Returns:
-        pts_final: torch.Tensor, [N*P, 3]
-        pts_each: List of torch.Tensor, [P, 3]
+        pts_final (v3d.Point3d): [N*P, 3]
+        pts_each (List[v3d.Point3d]): List, [P, 3]
         v3dcams: List of visu3d.Camera
     """
     outs = torch.load(path)
@@ -103,8 +103,12 @@ def read_dust3r(path):
         R, t = T[:3, :3], T[:3, 3:].T
         pts = outs["pts3d"][i]
         # pts = outs["pts3d"][i]@R.T + t
-        pts_each.append(pts.numpy().reshape(-1, 3))
-        cols_each.append(imguint8.reshape(-1, 3))
+        if flatten:
+            pts_each.append(pts.numpy().reshape(-1, 3))
+            cols_each.append(imguint8.reshape(-1, 3))
+        else:
+            pts_each.append(pts.numpy())
+            cols_each.append(imguint8)
         pts_final.append(pts)
         cols_final.append(imguint8)
         v3dcam = v3d.Camera(spec=cam_spec, world_from_cam=v3d.Transform.from_matrix(T))

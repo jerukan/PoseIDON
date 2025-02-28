@@ -1,6 +1,43 @@
+"""
+Everything images.
+"""
+import json
+from pathlib import Path
+from typing import List, Union
+
 import cv2
+import dataclass_array as dca
 import numpy as np
+from PIL import Image
+import quaternion
 import visu3d as v3d
+import yaml
+
+from burybarrel.utils import ext_pattern
+
+
+def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False):
+    """
+    So I don't have to rewrite this in every notebook.
+
+    Returns:
+        (imgpaths, imgs): list of img paths and list of loaded images
+    """
+    imgdir = Path(imgdir)
+    if not imgdir.exists():
+        raise FileNotFoundError(f"Directory {imgdir} not found.")
+    if patterns is None:
+        patterns = [ext_pattern("png"), ext_pattern("jpg"), ext_pattern("jpeg")]
+    imgpaths = []
+    for pattern in patterns:
+        imgpaths.extend(list(imgdir.glob(pattern)))
+    if sortnames:
+        imgpaths = sorted(imgpaths)
+    if asarray:
+        imgs = np.array([cv2.cvtColor(cv2.imread(str(imgpath)), cv2.COLOR_BGR2RGB) for imgpath in imgpaths])
+    else:
+        imgs = [Image.open(imgpath) for imgpath in imgpaths]
+    return imgpaths, imgs
 
 
 def segment_pc_from_mask(pc: v3d.Point3d, mask, v3dcam: v3d.Camera):
@@ -69,3 +106,59 @@ def apply_clahe(img, clipLimit=None, tileGridSize=None):
     limg = cv2.merge((cl, a, b))
     final = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
     return final
+
+
+def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1, background=None) -> np.ndarray:
+    """
+    A modified version of v3d.Camera.render() to allow the sizes of each of the
+    points in a point cloud to be changed, since you literally couldn't see
+    anything for sparse point clouds renders (each points is literally a pixel).
+    Currently doesn't scale point size for distance. I may implement this later.
+
+    Project 3d points to the camera screen.
+
+    Args:
+      points: 3d points.
+      background: background image to use; must be same dimensions as camera width/height
+
+    Returns:
+      img: The projected 3d points.
+    """
+    # TODO(epot): Support float colors and make this differentiable!
+    if not isinstance(points, v3d.Point3d):
+        raise TypeError(
+            f'Camera.render expect `v3d.Point3d` as input. Got: {points}.'
+        )
+
+    # Project 3d -> 2d coordinates
+    points2d = cam.px_from_world @ points
+
+    # Flatten pixels
+    points2d = points2d.flatten()
+    px_coords = points2d.p
+    rgb = points2d.rgb
+
+    # Compute the valid coordinates
+    w_coords = px_coords[..., 0]
+    h_coords = px_coords[..., 1]
+    valid_coords_mask = (
+        (0 <= h_coords)
+        & (h_coords < cam.h - 1)
+        & (0 <= w_coords)
+        & (w_coords < cam.w - 1)
+        & (points2d.depth[..., 0] > 0)  # Filter points behind the camera
+    )
+    rgb = rgb[valid_coords_mask]
+    px_coords = px_coords[valid_coords_mask]
+    px_coords = np.astype(np.round(px_coords), np.int32)
+
+    # px_coords is (h, w)
+    img = np.zeros((*cam.resolution, 3), dtype=np.uint8)
+    if background is not None:
+        if background.shape[0] == cam.resolution[0] and background.shape[1] == cam.resolution[1]:
+            img[...] = background
+        else:
+            raise ValueError(f"Invalid background img shape {background.shape}")
+    for i, coord in enumerate(px_coords):
+        img = cv2.circle(img, coord, radius, tuple(int(ch) for ch in rgb[i]), -1)
+    return img

@@ -68,3 +68,34 @@ def get_ray_trace(
         ),
         name="",
     )
+
+
+def get_axes_traces(transform, scale=1.0, linewidth=1.0):
+    """
+    Generates plotly traces for the axes of 3D transformation(s). Colors for each axis
+    are red, green, and blue for x, y, and z, respectively, like in Blender.
+    """
+    if isinstance(transform, np.ndarray):
+        tshape = transform.shape
+        # nice code lol xd
+        if len(tshape) == 2 and tshape[0] == 4 and tshape[1] == 4:
+            transform = v3d.Transform.from_matrix(transform)
+        elif len(tshape) == 3 and tshape[1] == 4 and tshape[2] == 4:
+            transform = v3d.Transform.from_matrix(transform)
+        else:
+            raise ValueError("bad")
+    xcol = "#d91616"
+    ycol = "#22eb17"
+    zcol = "#1929e0"
+    traces = []
+    origin = transform @ np.array([[0.0, 0, 0]])
+    x = transform @ np.array([[1.0, 0, 0]])
+    y = transform @ np.array([[0.0, 1, 0]])
+    z = transform @ np.array([[0.0, 0, 1]])
+    for i, singleorgn in enumerate(origin):
+        traces.extend([
+            get_ray_trace(singleorgn, x[i] - singleorgn, length=scale, width=linewidth, color=xcol),
+            get_ray_trace(singleorgn, y[i] - singleorgn, length=scale, width=linewidth, color=ycol),
+            get_ray_trace(singleorgn, z[i] - singleorgn, length=scale, width=linewidth, color=zcol)
+        ])
+    return traces

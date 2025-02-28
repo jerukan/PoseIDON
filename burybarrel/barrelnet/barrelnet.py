@@ -59,8 +59,8 @@ class BarrelNet(nn.Module):
         pts, scale = pts2inference_format(pts, max_points=max_points)
         with torch.no_grad():
             radius_pred, zshift_pred, axis_pred = self(pts)
-            radius_pred = radius_pred.cpu().numpy()[0]
-            zshift_pred = zshift_pred.cpu().numpy()[0]
+            radius_pred = radius_pred.float().cpu().numpy()[0]
+            zshift_pred = zshift_pred.float().cpu().numpy()[0]
             axis_pred = axis_pred.cpu().numpy()[0]
         axis_pred = axis_pred / np.linalg.norm(axis_pred)
         r = scale * radius_pred

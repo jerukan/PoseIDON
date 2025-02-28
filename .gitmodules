@@ -1,3 +1,6 @@
 [submodule "dust3r"]
 	path = dust3r
 	url = https://github.com/naver/dust3r.git
+[submodule "bop_toolkit"]
+	path = bop_toolkit
+	url = https://github.com/thodan/bop_toolkit.git

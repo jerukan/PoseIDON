@@ -3,6 +3,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 import yaml
 
 from burybarrel.utils import denoise_nav_depth
@@ -10,9 +11,11 @@ from burybarrel.image import apply_clahe
 
 
 def run(
-    footagecfg_path,
-    footagename,
+    input_path,
     step,
+    output_dir=None,
+    start_time=None,
+    timezone=None,
     navpath=None,
     crop=True,
     fps=25,
@@ -23,13 +26,11 @@ def run(
     Args:
         fps: videos are at 25 fps
     """
-    with open(footagecfg_path, "rt") as f:
-        footagecfg = yaml.safe_load(f)
-    cfg = footagecfg[footagename]
-    vidpath = Path(cfg["path"])
-    start_t = pd.Timestamp(cfg["start_time"], tz=cfg["timezone"])
-    outdir = vidpath.parent / vidpath.stem
-
+    vidpath = Path(input_path)
+    if output_dir is None:
+        outdir = vidpath.parent / vidpath.stem
+    else:
+        outdir = Path(output_dir)
     # top left x, y, width, height
     bbox = [0, 120, 1920, 875]
     # nav depth data is extremely buggy, values just jump up for no reason
@@ -37,14 +38,12 @@ def run(
 
     outdir.mkdir(parents=True, exist_ok=True)
     vid = cv2.VideoCapture(str(vidpath))
-    dt = pd.Timedelta(seconds=step / fps)
-    curr_t = start_t
     nframes = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
 
     fnames = []
 
     cnt = 0
-    for i in range(0, nframes, step):
+    for i in tqdm(range(0, nframes, step)):
         vid.set(cv2.CAP_PROP_POS_FRAMES, i)
         _, frame = vid.read()
         if frame is None:
@@ -54,14 +53,19 @@ def run(
             frame = apply_clahe(frame, clipLimit=2.0, tileGridSize=(8, 8))
         if crop:
             cropped = frame[bbox[1] : bbox[1] + bbox[3], bbox[0] : bbox[0] + bbox[2]]
-            fname = f"cropped{str(cnt).zfill(4)}.jpg"
+            fname = f"cropped{str(cnt).zfill(4)}.png"
         else:
             cropped = frame
-            fname = f"uncropped{str(cnt).zfill(4)}.jpg"
+            fname = f"uncropped{str(cnt).zfill(4)}.png"
         fnames.append(fname)
         cv2.imwrite(str(outdir / fname), cropped)
         cnt += 1
 
+    if start_time is None:
+        return
+    start_t = pd.Timestamp(start_time, tz=timezone)
+    dt = pd.Timedelta(seconds=step / fps)
+    curr_t = start_t
     if navpath is not None:
         navpath = Path(navpath)
         nav = pd.read_csv(navpath)
