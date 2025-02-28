@@ -12,7 +12,8 @@ import visu3d as v3d
 import yaml
 
 import burybarrel.colmap_util as cutil
-from burybarrel.image import imgs_from_dir, save_v3dcams_yaml
+from burybarrel.image import imgs_from_dir
+from burybarrel.camera import save_v3dcams
 
 
 def run(img_dir, out_dir, overwrite=False):
@@ -24,7 +25,7 @@ def run(img_dir, out_dir, overwrite=False):
     colmap_out.mkdir(parents=True, exist_ok=True)
     openmvs_out.mkdir(parents=True, exist_ok=True)
     database_path = colmap_out / "database.db"
-    camposes_path = out_dir / "cam_poses.yaml"
+    camposes_path = out_dir / "cam_poses.json"
     if overwrite and database_path.exists():
         database_path.unlink()
     mvs_dir = colmap_out / "mvs"
@@ -33,10 +34,11 @@ def run(img_dir, out_dir, overwrite=False):
     # assume same size for all images (surely colmap will error if not)
     w, h = imgs[0].size
     camera = pycolmap.Camera(
-        model="PINHOLE",
-        width=w,
-        height=h,
-        params=[1246, 1246, w / 2, h / 2],
+        model=pycolmap.CameraModelId.RADIAL,
+        width=1920,
+        height=875,
+        # f, cx, cy, k1, k2
+        params=[1300, 960, 420, 0.0, 0.0]
     )
     pycolmap.extract_features(
         database_path,
@@ -68,9 +70,12 @@ def run(img_dir, out_dir, overwrite=False):
     maps = pycolmap.incremental_mapping(
         database_path, img_dir, colmap_out,
         options={
+            "ba_refine_focal_length": True,
+            "ba_refine_principal_point": True,
+            "ba_refine_extra_params": True,
             "ba_global_function_tolerance": 1e-2,
             "ba_local_function_tolerance": 1e-2,
-            "init_num_trials": 500,
+            "init_num_trials": 1000,
             "ba_global_max_num_iterations": 200,
             # just double all the thresholds lol
             # surely this won't go horribly
@@ -82,7 +87,7 @@ def run(img_dir, out_dir, overwrite=False):
                 "filter_min_tri_angle": 3.0,
                 "init_max_error": 8.0,
                 "init_max_reg_trials": 4,
-                "init_min_num_inliers": 30,
+                "init_min_num_inliers": 20,
             }
         }
     )
@@ -102,7 +107,7 @@ def run(img_dir, out_dir, overwrite=False):
     )
     reconstruction = pycolmap.Reconstruction(colmap_out / "0")
     cams, camnames = cutil.get_cams_v3d(reconstruction, return_names=True)
-    save_v3dcams_yaml(cams, [img_dir / name for name in camnames], camposes_path)
+    save_v3dcams(cams, [img_dir / name for name in camnames], camposes_path)
 
     ### openmvs code ###
     mvs_rel = os.path.relpath(mvs_dir, openmvs_out)  # openmvs converts colmap stuff to relative paths
@@ -111,4 +116,5 @@ def run(img_dir, out_dir, overwrite=False):
     subprocess.run(["DensifyPointCloud", "scene.mvs"], cwd=openmvs_out, check=True)
     subprocess.run(["ReconstructMesh", "scene_dense.mvs", "-p", "scene_dense.ply"], cwd=openmvs_out, check=True)
     subprocess.run(["RefineMesh", "scene.mvs", "-m", "scene_dense_mesh.ply", "-o", "scene_dense_mesh_refine.mvs"], cwd=openmvs_out, check=True)
-    subprocess.run(["TextureMesh", "scene_dense.mvs", "-m", "scene_dense_mesh_refine.ply", "-o", "scene_dense_mesh_refine_texture.mvs"], cwd=openmvs_out, check=True)
+    # export as obj since openmvs exports ply textures in a format blender can't read
+    subprocess.run(["TextureMesh", "scene_dense.mvs", "-m", "scene_dense_mesh_refine.ply", "-o", "scene_dense_mesh_refine_texture.mvs", "--export-type", "obj"], cwd=openmvs_out, check=True)

@@ -15,7 +15,7 @@ conda create --name barrels python=3.11
 conda activate barrels
 conda install -c nvidia cuda
 export CUDA_HOME=$CONDA_PREFIX
-pip install jupyter plotly dill pyransac3d open3d transforms3d roma mitsuba shapely git+https://github.com/luca-medeiros/lang-segment-anything.git git+https://github.com/google-research/visu3d.git git+https://github.com/jerukan/pyrender.git
+pip install jupyter plotly dill pyransac3d open3d transforms3d roma mitsuba shapely fake-bpy-module git+https://github.com/luca-medeiros/lang-segment-anything.git git+https://github.com/google-research/visu3d.git git+https://github.com/jerukan/pyrender.git
 ```
 
 ## Script running

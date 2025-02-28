@@ -11,6 +11,8 @@ import pycolmap
 import sqlite3
 import visu3d as v3d
 
+from burybarrel.camera import RadialCamera
+
 
 def get_images(database_path: Union[str, Path]) -> List[pycolmap.Image]:
     db = pycolmap.Database(database_path)
@@ -81,7 +83,19 @@ def get_cams_v3d(reconstruction: pycolmap.Reconstruction, sortkey="name", return
     camlisttmp: List[v3d.Camera] = []
     names: List[str] = []
     for img in imgs:
-        spec = v3d.PinholeCamera.from_focal(resolution=(img.camera.height, img.camera.width), focal_in_px=img.camera.focal_length)
+        camparams = img.camera.params
+        if img.camera.model == pycolmap.CameraModelId.SIMPLE_RADIAL:
+            k1k2 = (camparams[3], 0.0)
+        elif img.camera.model == pycolmap.CameraModelId.RADIAL:
+            k1k2 = (camparams[3], camparams[4])
+        else:
+            k1k2 = (0.0, 0.0)
+        K = np.array([
+            [img.camera.focal_length_x, 0, img.camera.principal_point_x],
+            [0, img.camera.focal_length_y, img.camera.principal_point_y],
+            [0, 0, 1],
+        ], dtype=float)
+        spec = RadialCamera(resolution=(img.camera.height, img.camera.width), K=K, k1k2=k1k2)
         T = v3d.Transform.from_matrix(img.cam_from_world.matrix()).inv
         camlisttmp.append(v3d.Camera(spec=spec, world_from_cam=T))
         names.append(img.name)
