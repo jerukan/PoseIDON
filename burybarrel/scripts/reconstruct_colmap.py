@@ -71,7 +71,7 @@ def run(img_dir, out_dir, overwrite=False):
         database_path, img_dir, colmap_out,
         options={
             "ba_refine_focal_length": True,
-            "ba_refine_principal_point": True,
+            "ba_refine_principal_point": False,
             "ba_refine_extra_params": True,
             "ba_global_function_tolerance": 1e-2,
             "ba_local_function_tolerance": 1e-2,

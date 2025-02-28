@@ -93,7 +93,7 @@ def save_v3dcams(cams: v3d.Camera, imgpaths: List[Union[str, Path]], outpath: Un
         else:
             k1k2 = [0.0, 0.0]
         singlepose = {
-            "img_path": str(imgpath),
+            "img_path": str(imgpath.absolute()),
             "R": quaternion.as_float_array(quat).tolist(),
             "t": t.tolist(),
             "K": cam.spec.K.tolist(),
