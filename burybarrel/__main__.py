@@ -116,11 +116,19 @@ def get_footage_keyframes(
     show_default=True,
     help="n x n kernel size for morphological closing operation; set to 0 for no closing",
 )
-def create_masks(imgdir, text_prompt, outdir, box_threshold, text_threshold, closekernelsize):
+@click.option(
+    "--convexhull",
+    "convexhull",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Perform a convex hull on all masks if true (closing is ignored if this is true)",
+)
+def create_masks(imgdir, text_prompt, outdir, box_threshold, text_threshold, closekernelsize, convexhull):
     from burybarrel.scripts import create_masks
 
     create_masks.run(
-        imgdir, text_prompt, outdir, box_threshold=box_threshold, text_threshold=text_threshold, closekernelsize=closekernelsize
+        imgdir, text_prompt, outdir, box_threshold=box_threshold, text_threshold=text_threshold, closekernelsize=closekernelsize, convexhull=convexhull
     )
 
 

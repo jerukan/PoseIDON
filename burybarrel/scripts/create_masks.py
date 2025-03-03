@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from burybarrel.langsam_utils import display_image_with_masks
 
-def run(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=0.25, closekernelsize: int=0):
+def run(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=0.25, closekernelsize: int=0, convexhull=False):
     imgdir = Path(imgdir)
     imgpaths = sorted(list(imgdir.glob("*.png")) + list(imgdir.glob("*.jpg")))
     outdir = Path(outdir)
@@ -37,11 +37,15 @@ def run(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=0.25, clo
         if len(masks) == 0:
             print(f"No objects of the '{text_prompt}' prompt detected in the image.")
         else:
-            masks_np = [mask for mask in masks]
+            masks_np = [(mask * 255).astype(np.uint8) for mask in masks]
             if closekernelsize > 0:
                 # kernel = np.ones((closekernelsize, closekernelsize))
                 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (closekernelsize, closekernelsize))
                 masks_np = [cv2.morphologyEx(mask_np, cv2.MORPH_CLOSE, kernel) for mask_np in masks_np]
+            if convexhull:
+                contours = [cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] for mask in masks_np]
+                convexcontours = [cv2.convexHull(np.vstack(contour)) for contour in contours]
+                masks_np = [cv2.drawContours(np.zeros_like(masks_np[0]), [convexcontour], -1, 1, thickness=cv2.FILLED) for convexcontour in convexcontours]
 
             bbox_mask_path = maskcomp_dir / f"{imgpath.stem}_img_with_mask.png"
             bbox_mask_path.parent.mkdir(parents=True, exist_ok=True)
