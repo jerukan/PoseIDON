@@ -9,17 +9,20 @@ import numpy as np
 bpy.context.scene.render.resolution_x = 1920
 bpy.context.scene.render.resolution_y = 875
 
-barrel_obj_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/openmvs-out/scene_dense_mesh_refine_texture.obj")
+reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/Munitions_Models/depth_charge_mark_9_mod_1-scaled.ply")
+# reconstruct_dense_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/openmvs-out/scene_dense.ply")
+reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/openmvs-out/scene_dense_mesh_refine_texture.obj")
 camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/cam_poses.json")
 
+# clearing every object in the current scene (don't accidentally run this in the wrong scene)
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.object.delete()
 for c in bpy.context.scene.collection.children:
     bpy.context.scene.collection.children.unlink(c)
 
-bpy.ops.wm.obj_import(filepath=str(barrel_obj_path), up_axis="Z", forward_axis="Y")
-barrelobj = bpy.context.selected_objects[0]
-print(f"{barrelobj.name}: {barrelobj}")
+bpy.ops.wm.ply_import(filepath=str(reference_model_path))
+# bpy.ops.wm.ply_import(filepath=str(reconstruct_dense_path))
+bpy.ops.wm.obj_import(filepath=str(reconstruct_mesh_path), up_axis="Z", forward_axis="Y")
 
 camcollection = bpy.data.collections.new("ReconstructedCameras")
 bpy.context.scene.collection.children.link(camcollection)
@@ -35,10 +38,9 @@ for i, campose in enumerate(camposes):
     bpy.context.scene.collection.objects.unlink(cam)
     cam.data.lens_unit = "FOV"
     cam.data.angle = 2 * np.arctan2(1920, 2 * campose["K"][0][0])
-    pix2mm = cam.data.sensor_width / 1920
-    # attempt at changing principal point... units are wrong or something
-    # cam.data.shift_x = (campose["K"][0][2] - 960) * pix2mm / 1000
-    # cam.data.shift_y = (campose["K"][1][2] - 437.5) * pix2mm / 1000
+    # attempt at changing principal point... fraction of width/height in pixels
+    cam.data.shift_x = (campose["K"][0][2] - 960) / 1920
+    cam.data.shift_y = (campose["K"][1][2] - 437.5) / 1920
     cam.rotation_mode = "QUATERNION"
     q = campose["R"]
     # ok blender follow opengl camera coordinates (cam faces -Z instead of +Z)

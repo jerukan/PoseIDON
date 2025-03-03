@@ -1,0 +1,17 @@
+# manually find these world coordinates from Blender
+barrelddt1:
+  scalefactor: 5
+  t: [-0.803325, -0.31564, 18.0113]
+  R: [-49.6539, 0, 0]
+  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
+barrel4:
+  scalefactor: 1.47
+  t: [-4.86985294,  2.28614706,  4.86627941]
+  R: [223.25, -11.152, 147.46]
+  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
+dive3-depthcharge-03-04:
+  scalefactor: 3.40655
+  t: [-0.078446, 2.68722, 15.8649]
+  R: [-147.863, -20.7501, 98.8496]
+  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/Munitions_Models/depth_charge_mark_9_mod_1-scaled.ply
+  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/cam_poses.json

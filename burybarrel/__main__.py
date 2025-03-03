@@ -174,6 +174,22 @@ def reconstruct_dust3r(model_path, imgdir, outdir, device):
     type=click.Path(file_okay=False),
 )
 @click.option(
+    "--sparse",
+    "sparse",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Whether to run sparse reconstruction",
+)
+@click.option(
+    "--dense",
+    "dense",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Whether to run dense + mesh + texture reconstruction (requires sparse to be run first)",
+)
+@click.option(
     "--overwrite",
     "overwrite",
     is_flag=True,
@@ -181,10 +197,10 @@ def reconstruct_dust3r(model_path, imgdir, outdir, device):
     type=click.BOOL,
     help="Overwrite existing COLMAP database if it exists (it complains by default)",
 )
-def reconstruct_colmap(imgdir, outdir, overwrite):
+def reconstruct_colmap(imgdir, outdir, sparse, dense, overwrite):
     from burybarrel.scripts import reconstruct_colmap
 
-    reconstruct_colmap.run(imgdir, outdir, overwrite=overwrite)
+    reconstruct_colmap.run(imgdir, outdir, sparse=sparse, dense=dense, overwrite=overwrite)
 
 
 if __name__ == "__main__":

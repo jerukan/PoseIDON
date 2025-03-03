@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import cv2
 import dataclass_array as dca
@@ -111,8 +111,10 @@ def save_v3dcams(cams: v3d.Camera, imgpaths: List[Union[str, Path]], outpath: Un
     return camposedata
 
 
-def load_v3dcams(path):
+def load_v3dcams(path, img_parent=None) -> Tuple[RadialCamera, List[Path]]:
     """
+    JSON fields:
+    ```
     {
         "img_path": str,
         "R": [w, x, y, z],
@@ -122,6 +124,15 @@ def load_v3dcams(path):
         "width": int,
         "height": int,
     }
+    ```
+
+    Args:
+        path (path-like)
+        img_parent (path-like): parent directory of images if on a different machine (simple
+            replaces the parent directory of the image names in the JSON)
+
+    Returns:
+        (v3d.Camera, List[Path]): cameras and image paths
     """
     with open(path, "rt") as f:
         # yaml can load jsons
@@ -136,6 +147,9 @@ def load_v3dcams(path):
         t = np.array(posedata["t"])
         T = v3d.Transform(R=R, t=t)
         camlisttmp.append(v3d.Camera(spec=spec, world_from_cam=T))
-        imgpaths.append(Path(posedata["img_path"]))
+        if img_parent is not None:
+            imgpaths.append(Path(img_parent) / Path(posedata["img_path"]).name)
+        else:
+            imgpaths.append(Path(posedata["img_path"]))
     cams: v3d.Camera = dca.stack(camlisttmp)
     return cams, imgpaths

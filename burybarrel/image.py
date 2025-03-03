@@ -9,7 +9,9 @@ import cv2
 import dataclass_array as dca
 import numpy as np
 from PIL import Image
+import pyrender
 import quaternion
+import trimesh
 import visu3d as v3d
 import yaml
 
@@ -162,3 +164,75 @@ def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1, background=None) 
     for i, coord in enumerate(px_coords):
         img = cv2.circle(img, coord, radius, tuple(int(ch) for ch in rgb[i]), -1)
     return img
+
+
+def render_model(cam: v3d.Camera, mesh: trimesh.Geometry, transform: v3d.Transform, light_intensity=2.4):
+    """
+    Renders a mesh in a given pose for a given camera view.
+
+    Returns:
+        (np.ndarray, np.ndarray, np.ndarray): color (hxwh3), depth (hxw), mask (hxw)
+    """
+    renderer = pyrender.OffscreenRenderer(cam.w, cam.h)
+    pyrendercam = pyrender.IntrinsicsCamera(
+        fx=cam.spec.K[0, 0],
+        fy=cam.spec.K[1, 1],
+        cx=cam.spec.K[0, 2],
+        cy=cam.spec.K[1, 2],
+        znear=0.05,
+        zfar=3000.0  
+    )
+    pyrendermesh = pyrender.Mesh.from_trimesh(mesh)
+    camrot = v3d.Transform.from_angle(x=np.pi, y=0, z=0)
+    oglcamT: v3d.Transform = cam.world_from_cam @ camrot
+
+    ambient_light = np.array([0.02, 0.02, 0.02, 1.0])
+    scene = pyrender.Scene(bg_color=np.zeros(4), ambient_light=ambient_light)
+    meshnode = pyrender.Node(mesh=pyrendermesh, matrix=transform.matrix4x4)
+    camnode = pyrender.Node(camera=pyrendercam, matrix=oglcamT.matrix4x4)
+    light = pyrender.SpotLight(
+        color=np.ones(3),
+        intensity=light_intensity,
+        innerConeAngle=np.pi / 16.0,
+        outerConeAngle=np.pi / 6.0,
+    )
+    lightnode = pyrender.Node(light=light, matrix=oglcamT.matrix4x4)
+    scene.add_node(meshnode)
+    scene.add_node(camnode)
+    scene.add_node(lightnode)
+    color, depth = renderer.render(scene)
+    mask = depth > 0
+    renderer.delete()
+    return color, depth, mask
+
+
+def to_contour(img: np.ndarray, color=(255, 255, 255), dilate_iterations=1, outline_only=False, background=None):
+    """
+    Get contour of an object rendering (only object in frame, black background).
+
+    Args:
+        background (np.ndarray): RGB background image to overlay contour onto
+    """
+    if outline_only:
+        mask = np.zeros_like(img)
+        mask[img > 0] = 255
+        mask = np.max(mask, axis=-1)
+        mask_bool = mask.numpy().astype(np.bool_)
+
+        mask_uint8 = (mask_bool.astype(np.uint8) * 255)[:, :, None]
+        mask_rgb = np.concatenate((mask_uint8, mask_uint8, mask_uint8), axis=-1)
+    else:
+        mask_rgb = img
+
+    canny = cv2.Canny(mask_rgb, threshold1=30, threshold2=100)
+
+    kernel = np.ones((3, 3), np.uint8)
+    canny = cv2.dilate(canny, kernel, iterations=dilate_iterations)
+
+    if background is not None:
+        img_contour = np.copy(background)
+    else:
+        img_contour = np.zeros_like(img)
+    img_contour[canny > 0] = color
+
+    return img_contour
