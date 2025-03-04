@@ -2,6 +2,7 @@
 Everything images.
 """
 import json
+import os
 from pathlib import Path
 from typing import List, Union
 
@@ -11,6 +12,7 @@ import numpy as np
 from PIL import Image
 import pyrender
 import quaternion
+import torch
 import trimesh
 import visu3d as v3d
 import yaml
@@ -171,8 +173,10 @@ def render_model(cam: v3d.Camera, mesh: trimesh.Geometry, transform: v3d.Transfo
     Renders a mesh in a given pose for a given camera view.
 
     Returns:
-        (np.ndarray, np.ndarray, np.ndarray): color (hxwh3), depth (hxw), mask (hxw)
+        (np.ndarray, np.ndarray, np.ndarray): uint8 color (hxwh3), depth (hxw), mask (hxw)
     """
+    if torch.cuda.is_available():
+        os.environ["PYOPENGL_PLATFORM"] = "egl"
     renderer = pyrender.OffscreenRenderer(cam.w, cam.h)
     pyrendercam = pyrender.IntrinsicsCamera(
         fx=cam.spec.K[0, 0],
