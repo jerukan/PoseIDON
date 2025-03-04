@@ -9,6 +9,7 @@ from PIL import Image
 from shapely import Polygon
 from tqdm import tqdm
 
+from burybarrel.image import imgs_from_dir
 from burybarrel.langsam_utils import display_image_with_masks
 
 
@@ -34,6 +35,7 @@ from burybarrel.langsam_utils import display_image_with_masks
     default=0.3,
     show_default=True,
     type=click.FLOAT,
+    help="GroundingDINO option",
 )
 @click.option(
     "--textthresh",
@@ -41,6 +43,15 @@ from burybarrel.langsam_utils import display_image_with_masks
     default=0.25,
     show_default=True,
     type=click.FLOAT,
+    help="GroundingDINO option",
+)
+@click.option(
+    "--maskthresh",
+    "mask_threshold",
+    default=0.0,
+    show_default=True,
+    type=click.FLOAT,
+    help="SAM option used to threshold logits into masks; lower if masks aren't including enough",
 )
 @click.option(
     "--closekernel",
@@ -56,15 +67,15 @@ from burybarrel.langsam_utils import display_image_with_masks
     is_flag=True,
     default=False,
     type=click.BOOL,
-    help="Perform a convex hull on all masks if true (closing is ignored if this is true)",
+    help="Perform a convex hull on all masks if true",
 )
-def create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=0.25, closekernelsize: int=0, convexhull=False):
+def create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=0.25, mask_threshold=0.0, closekernelsize: int=0, convexhull=False):
     from lang_sam import LangSAM
     from lang_sam.models.sam import SAM
     from sam2.sam2_image_predictor import SAM2ImagePredictor
 
     imgdir = Path(imgdir)
-    imgpaths = sorted(list(imgdir.glob("*.png")) + list(imgdir.glob("*.jpg")))
+    imgpaths, _ = imgs_from_dir(imgdir)
     outdir = Path(outdir)
     maskcomp_dir = outdir / "maskcomp"
     maskcomp_dir.mkdir(parents=True, exist_ok=True)
@@ -76,7 +87,7 @@ def create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=
     # hook in SAM model with different parameters
     sam_model = SAM()
     sam_model.build_model(langsam_model.sam_type)
-    sam_model.predictor = SAM2ImagePredictor(sam_model.model, mask_threshold=0.0, max_hole_area=0.0, max_sprinkle_area=0.0)
+    sam_model.predictor = SAM2ImagePredictor(sam_model.model, mask_threshold=mask_threshold, max_hole_area=0.0, max_sprinkle_area=0.0)
     langsam_model.sam = sam_model
 
     # each box is [x_min, y_min, x_max, y_max]
