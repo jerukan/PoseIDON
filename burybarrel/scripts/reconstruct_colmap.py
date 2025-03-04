@@ -1,13 +1,16 @@
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 
+import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pycolmap
 import quaternion
 import sqlite3
+import trimesh
 import visu3d as v3d
 import yaml
 
@@ -16,7 +19,46 @@ from burybarrel.image import imgs_from_dir
 from burybarrel.camera import save_v3dcams, RadialCamera
 
 
-def run(img_dir, out_dir, sparse=True, dense=True, overwrite=False):
+@click.command()
+@click.option(
+    "-i",
+    "--imgdir",
+    "imgdir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+)
+@click.option(
+    "-o",
+    "--outdir",
+    "outdir",
+    required=True,
+    type=click.Path(file_okay=False),
+)
+@click.option(
+    "--sparse",
+    "sparse",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Whether to run sparse reconstruction",
+)
+@click.option(
+    "--dense",
+    "dense",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Whether to run dense + mesh + texture reconstruction (requires sparse to be run first)",
+)
+@click.option(
+    "--overwrite",
+    "overwrite",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Overwrite existing COLMAP database if it exists (it complains by default)",
+)
+def reconstruct_colmap(img_dir, out_dir, sparse=True, dense=True, overwrite=False):
     ### colmap code ###
     img_dir = Path(img_dir)
     out_dir = Path(out_dir)
@@ -26,6 +68,8 @@ def run(img_dir, out_dir, sparse=True, dense=True, overwrite=False):
     openmvs_out.mkdir(parents=True, exist_ok=True)
     database_path = colmap_out / "database.db"
     camposes_path = out_dir / "cam_poses.json"
+    sparseply_path = out_dir / "sparse.ply"
+    camintrinsics_path = out_dir / "camera.json"
     mvs_dir = colmap_out / "mvs"
     sparsetmp_dir = colmap_out / "sparse_models_tmp"
     sparsetmp_dir.mkdir(parents=True, exist_ok=True)
@@ -41,8 +85,8 @@ def run(img_dir, out_dir, sparse=True, dense=True, overwrite=False):
         cx, cy = 960, 420
         camera = pycolmap.Camera(
             model=pycolmap.CameraModelId.RADIAL,
-            width=1920,
-            height=875,
+            width=w,
+            height=h,
             # f, cx, cy, k1, k2
             params=[f_prior, cx, cy, 0.0, 0.0]
         )
@@ -120,8 +164,8 @@ def run(img_dir, out_dir, sparse=True, dense=True, overwrite=False):
                     camera_id=i + 1,
                     has_prior_focal_length=True,
                     model=pycolmap.CameraModelId.RADIAL,
-                    width=1920,
-                    height=875,
+                    width=w,
+                    height=h,
                     # f, cx, cy, k1, k2
                     params=[med_f, cx, cy, med_k1, med_k2]
                 )
@@ -138,7 +182,23 @@ def run(img_dir, out_dir, sparse=True, dense=True, overwrite=False):
             raise RuntimeError("No valid sparse reconstruction from COLMAP.")
         reconstruction = pycolmap.Reconstruction(colmap_out / "0")
         cams, camnames = cutil.get_cams_v3d(reconstruction, return_names=True)
+        # saving relevant information from the reconstruction
         save_v3dcams(cams, [img_dir / name for name in camnames], camposes_path)
+        camintrinsics = {
+            "fx": med_f,
+            "fy": med_f,
+            "cx": cx,
+            "cy": cy,
+            "k1": med_k1,
+            "k2": med_k2,
+            "width": w,
+            "height": h,
+        }
+        with open(camintrinsics_path, "wt") as f:
+            json.dump(camintrinsics, f)
+        pts, cols = cutil.get_pc(reconstruction)
+        trimeshpc = trimesh.points.PointCloud(pts, colors=cols)
+        trimeshpc.export(sparseply_path)
 
         if overwrite and mvs_dir.exists():
             shutil.rmtree(mvs_dir)

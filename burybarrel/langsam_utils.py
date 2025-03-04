@@ -9,8 +9,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-from lang_sam import LangSAM
-
 # Suppress warning messages
 # warnings.filterwarnings("ignore")
 

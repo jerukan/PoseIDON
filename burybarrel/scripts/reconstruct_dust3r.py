@@ -1,3 +1,4 @@
+import click
 import os
 from pathlib import Path
 import sys
@@ -8,22 +9,51 @@ import trimesh
 import visu3d as v3d
 
 sys.path.append(os.path.abspath(os.path.join("dust3r")))
-from dust3r.inference import inference
-from dust3r.model import AsymmetricCroCo3DStereo
-from dust3r.utils.image import load_images
-from dust3r.image_pairs import make_pairs
-from dust3r.cloud_opt import global_aligner, GlobalAlignerMode
 
 from burybarrel.dust3r_utils import save_dust3r_outs, read_dust3r, resize_to_dust3r
 from burybarrel.image import imgs_from_dir
 
 
-def run(
+@click.command()
+@click.option(
+    "-m",
+    "--modelpath",
+    "model_path",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+)
+@click.option(
+    "-i",
+    "--imgdir",
+    "imgdir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+)
+@click.option(
+    "-o",
+    "--outdir",
+    "outdir",
+    required=True,
+    type=click.Path(file_okay=False),
+)
+@click.option(
+    "-d",
+    "--device",
+    "device",
+    type=click.STRING,
+)
+def reconstruct_dust3r(
     model_path,
     img_dir,
     out_dir,
     device=None,
 ):
+    from dust3r.inference import inference
+    from dust3r.model import AsymmetricCroCo3DStereo
+    from dust3r.utils.image import load_images
+    from dust3r.image_pairs import make_pairs
+    from dust3r.cloud_opt import global_aligner, GlobalAlignerMode
+
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     model_path = Path(model_path)

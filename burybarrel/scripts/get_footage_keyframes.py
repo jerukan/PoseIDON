@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import click
 import cv2
 import numpy as np
 import pandas as pd
@@ -10,7 +11,36 @@ from burybarrel.utils import denoise_nav_depth
 from burybarrel.image import apply_clahe
 
 
-def run(
+@click.command()
+@click.option("-i", "--input", "input_vid", required=True, type=click.Path(exists=True, dir_okay=False), help="input video path")
+@click.option("-o", "--output", "output_dir", required=False, type=click.Path(file_okay=False), help="output dir")
+@click.option("-t", "--time", "start_time", required=False, type=click.STRING, help="start time of the video")
+@click.option("--tz", "timezone", required=False, type=click.STRING, help="timezone")
+@click.option(
+    "--fps", "fps", required=True, default=25, show_default=True, type=click.INT
+)
+@click.option("--step", "step", required=True, type=click.INT, help="Number of frames between each image")
+@click.option(
+    "--crop/--no-crop", "crop", is_flag=True, default=True, show_default=True, type=click.BOOL
+)
+@click.option(
+    "--contrast",
+    "increase_contrast",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="If provided, increases contrast of the images",
+)
+@click.option("--navpath", "navpath", type=click.Path(exists=True, dir_okay=False))
+@click.option(
+    "--denoisedepth",
+    "denoise_depth",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Only used when navpath is provided; naively denoises depth data"
+)
+def get_footage_keyframes(
     input_path,
     step,
     output_dir=None,

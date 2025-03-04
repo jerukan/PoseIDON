@@ -54,8 +54,10 @@ def get_features(
 
 def get_pc(reconstruction: pycolmap.Reconstruction) -> Tuple[np.ndarray, np.ndarray]:
     """
+    Retrieves sparse point cloud from COLMAP reconstruction.
+
     Returns:
-        points in 3d space, RGB color for each point
+        (np.ndarray, np.ndarray): points in 3d space, RGB color (uint8) for each point
     """
     pts = []
     cols = []
