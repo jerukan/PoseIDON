@@ -1,4 +1,5 @@
 # manually find these world coordinates from Blender
+# the rotations are in XYZ EULER COORDINATES IN DEGREES because that's Blender default
 barrelddt1:
   scalefactor: 5
   t: [-0.803325, -0.31564, 18.0113]
@@ -15,3 +16,9 @@ dive3-depthcharge-03-04:
   R: [-147.863, -20.7501, 98.8496]
   model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/Munitions_Models/depth_charge_mark_9_mod_1-scaled.ply
   camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/cam_poses.json
+barrel2:
+  scalefactor: 2.48946
+  t: [-3.65472, -1.80495, 12.9438]
+  R: [33.9378, -11.8677, 9.23124]
+  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
+  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2-reconstr/cam_poses.json

@@ -23,14 +23,14 @@ from burybarrel.camera import save_v3dcams, RadialCamera
 @click.option(
     "-i",
     "--imgdir",
-    "imgdir",
+    "img_dir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
 )
 @click.option(
     "-o",
     "--outdir",
-    "outdir",
+    "out_dir",
     required=True,
     type=click.Path(file_okay=False),
 )
@@ -147,8 +147,7 @@ def reconstruct_colmap(img_dir, out_dir, sparse=True, dense=True, overwrite=Fals
             options=incrementalmapping_options,
         )
         print(f"All reconstructed without prior intrinsics maps: {maps}")
-        if len(maps) == 0:
-            raise RuntimeError("No valid sparse reconstruction from COLMAP.")
+        check_maps_valid(maps)
         
         # rerun with fixed intrinsics estimated from first run (is this valid?)
         reconstruction = pycolmap.Reconstruction(sparsetmp_dir / "0")
@@ -178,19 +177,18 @@ def reconstruct_colmap(img_dir, out_dir, sparse=True, dense=True, overwrite=Fals
             options=incrementalmapping_options
         )
         print(f"All reconstructed maps using fixed estimated intrinsics: {maps}")
-        if len(maps) == 0:
-            raise RuntimeError("No valid sparse reconstruction from COLMAP.")
+        check_maps_valid(maps)
         reconstruction = pycolmap.Reconstruction(colmap_out / "0")
         cams, camnames = cutil.get_cams_v3d(reconstruction, return_names=True)
         # saving relevant information from the reconstruction
         save_v3dcams(cams, [img_dir / name for name in camnames], camposes_path)
         camintrinsics = {
-            "fx": med_f,
-            "fy": med_f,
+            "fx": med_f.item(),
+            "fy": med_f.item(),
             "cx": cx,
             "cy": cy,
-            "k1": med_k1,
-            "k2": med_k2,
+            "k1": med_k1.item(),
+            "k2": med_k2.item(),
             "width": w,
             "height": h,
         }
@@ -224,3 +222,16 @@ def reconstruct_colmap(img_dir, out_dir, sparse=True, dense=True, overwrite=Fals
         subprocess.run(["RefineMesh", "scene.mvs", "-m", "scene_dense_mesh.ply", "-o", "scene_dense_mesh_refine.mvs"], cwd=openmvs_out, check=True)
         # export as obj since openmvs exports ply textures in a format blender can't read
         subprocess.run(["TextureMesh", "scene_dense.mvs", "-m", "scene_dense_mesh_refine.ply", "-o", "scene_dense_mesh_refine_texture.mvs", "--export-type", "obj"], cwd=openmvs_out, check=True)
+
+
+def check_maps_valid(maps):
+    """
+    Check valididty of incremantal mapping results from COLMAP.
+
+    Raises errors if 0 reconstructions are found or if no reconstruction has >2 registered images.
+    """
+    if len(maps) == 0:
+        raise RuntimeError("No valid sparse reconstruction from COLMAP.")
+    reconstr_numreg = [rec.num_reg_images() for rec in maps.values()]
+    if max(reconstr_numreg) <= 2:
+        raise RuntimeError("No reconstruction has >2 registered images.")

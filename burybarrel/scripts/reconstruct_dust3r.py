@@ -25,14 +25,14 @@ from burybarrel.image import imgs_from_dir
 @click.option(
     "-i",
     "--imgdir",
-    "imgdir",
+    "img_dir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
 )
 @click.option(
     "-o",
     "--outdir",
-    "outdir",
+    "out_dir",
     required=True,
     type=click.Path(file_okay=False),
 )

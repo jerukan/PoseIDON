@@ -1,3 +1,11 @@
+"""
+This script loads camera poses from COLMAP into Blender and overlays the reference RGB
+image for the camera on its background.
+
+A mesh for the scene as reference should also be loaded in to make manual fitting easier.
+The reference model is also loaded for the actual fitting process.
+"""
+
 import os
 from pathlib import Path
 import json
@@ -9,10 +17,17 @@ import numpy as np
 bpy.context.scene.render.resolution_x = 1920
 bpy.context.scene.render.resolution_y = 875
 
-reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/Munitions_Models/depth_charge_mark_9_mod_1-scaled.ply")
+# reference model mesh
+# reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/Munitions_Models/depth_charge_mark_9_mod_1-scaled.ply")
+reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply")
+
+# reconstruction paths
 # reconstruct_dense_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/openmvs-out/scene_dense.ply")
-reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/openmvs-out/scene_dense_mesh_refine_texture.obj")
-camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/cam_poses.json")
+# reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/openmvs-out/scene_dense_mesh_refine_texture.obj")
+# camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/cam_poses.json")
+
+reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2-reconstr/openmvs-out/scene_dense_mesh_refine_texture.obj")
+camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2-reconstr/cam_poses.json")
 
 # clearing every object in the current scene (don't accidentally run this in the wrong scene)
 bpy.ops.object.select_all(action="SELECT")
