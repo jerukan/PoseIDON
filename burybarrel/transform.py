@@ -53,7 +53,7 @@ def rotate_pts_to_ax_torch(pts, normal, target):
     return rotscenexyz
 
 
-def icp(src_pc, trg_pc, T_init=None, max_iters=20, tol=1e-3, verbose=False, ret_err=False):
+def icp(src_pc: np.ndarray, trg_pc: np.ndarray, T_init=None, max_iters=20, tol=1e-3, verbose=False, ret_err=False):
     """
     Standard iterative closest point.
 

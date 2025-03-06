@@ -4,7 +4,7 @@ Everything images.
 import json
 import os
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import cv2
 import dataclass_array as dca
@@ -20,9 +20,14 @@ import yaml
 from burybarrel.utils import ext_pattern
 
 
-def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False):
+def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False, grayscale=False) -> Tuple[List[Path], Union[np.ndarray, List[Image.Image]]]:
     """
-    So I don't have to rewrite this in every notebook.
+    Loads 3-channel RGB or 1-channel grayscale images.
+
+    Made so I don't have to rewrite this in every notebook.
+
+    Args:
+        asarray (bool): if true, load image array as RGB arrays. Otherwise, load as PIL Images.
 
     Returns:
         (imgpaths, imgs): list of img paths and list of loaded images
@@ -38,21 +43,17 @@ def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False):
     if sortnames:
         imgpaths = sorted(imgpaths)
     if asarray:
-        imgs = np.array([cv2.cvtColor(cv2.imread(str(imgpath)), cv2.COLOR_BGR2RGB) for imgpath in imgpaths])
+        if grayscale:
+            imgs = np.array([cv2.imread(str(imgpath), cv2.IMREAD_GRAYSCALE) for imgpath in imgpaths])
+        else:
+            imgs = np.array([cv2.cvtColor(cv2.imread(str(imgpath)), cv2.COLOR_BGR2RGB) for imgpath in imgpaths])
     else:
         imgs = [Image.open(imgpath) for imgpath in imgpaths]
+        if grayscale:
+            imgs = [img.convert("L") for img in imgs]
+        else:
+            imgs = [img.convert("RGB") for img in imgs]
     return imgpaths, imgs
-
-
-def segment_pc_from_mask(pc: v3d.Point3d, mask, v3dcam: v3d.Camera):
-    idxs = np.arange(pc.shape[0])
-    H, W = v3dcam.spec.resolution
-    pxpts = v3dcam.px_from_world @ pc
-    uvs = pxpts.p
-    valid = (uvs[:, 0] >= 0) & (uvs[:, 0] <= W) & (uvs[:, 1] >= 0) & (uvs[:, 1] <= H)
-    barrelmask = mask[uvs[valid].astype(int).T[1], uvs[valid].astype(int).T[0]] > 0
-    barrelidxs = idxs[valid][barrelmask]
-    return barrelidxs
 
 
 def get_bbox_mask(bbox, W, H):
