@@ -14,9 +14,8 @@ import bpy
 import mathutils
 import numpy as np
 
-bpy.context.scene.render.resolution_x = 1920
-bpy.context.scene.render.resolution_y = 875
-
+print("CURRENT WORKING DIRECTORY")
+print(os.getcwd())
 # reference model mesh
 # reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/Munitions_Models/depth_charge_mark_9_mod_1-scaled.ply")
 reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply")
@@ -28,6 +27,13 @@ reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/mo
 
 reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2-reconstr/openmvs-out/scene_dense_mesh_refine_texture.obj")
 camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2-reconstr/cam_poses.json")
+
+with open(camposes_path, "rt") as f:
+    camposes = json.load(f)
+
+w, h = camposes[0]["width"], camposes[0]["height"]
+bpy.context.scene.render.resolution_x = w
+bpy.context.scene.render.resolution_y = h
 
 # clearing every object in the current scene (don't accidentally run this in the wrong scene)
 bpy.ops.object.select_all(action="SELECT")
@@ -42,9 +48,6 @@ bpy.ops.wm.obj_import(filepath=str(reconstruct_mesh_path), up_axis="Z", forward_
 camcollection = bpy.data.collections.new("ReconstructedCameras")
 bpy.context.scene.collection.children.link(camcollection)
 
-with open(camposes_path, "rt") as f:
-    camposes = json.load(f)
-
 for i, campose in enumerate(camposes):
     bpy.ops.object.camera_add()
     cam = bpy.context.selected_objects[0]
@@ -53,9 +56,10 @@ for i, campose in enumerate(camposes):
     bpy.context.scene.collection.objects.unlink(cam)
     cam.data.lens_unit = "FOV"
     cam.data.angle = 2 * np.arctan2(1920, 2 * campose["K"][0][0])
-    # attempt at changing principal point... fraction of width/height in pixels
-    cam.data.shift_x = (campose["K"][0][2] - 960) / 1920
-    cam.data.shift_y = (campose["K"][1][2] - 437.5) / 1920
+    # attempt at changing principal point...
+    # fraction of width or height in pixels, whichever is larger
+    cam.data.shift_x = (campose["K"][0][2] - (w / 2)) / max(w, h)
+    cam.data.shift_y = (campose["K"][1][2] - (h / 2)) / max(w, h)
     cam.rotation_mode = "QUATERNION"
     q = campose["R"]
     # ok blender follow opengl camera coordinates (cam faces -Z instead of +Z)
@@ -66,4 +70,3 @@ for i, campose in enumerate(camposes):
     cam.location = mathutils.Vector(campose["t"])
     bpy.ops.view3d.camera_background_image_add(filepath=campose["img_path"], relative_path=False)
     cam.data.background_images[0].display_depth = "FRONT"
-print(bpy.data.objects)

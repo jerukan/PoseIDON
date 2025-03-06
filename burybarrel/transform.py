@@ -53,6 +53,66 @@ def rotate_pts_to_ax_torch(pts, normal, target):
     return rotscenexyz
 
 
+def icp(src_pc, trg_pc, T_init=None, max_iters=20, tol=1e-3, verbose=False, ret_err=False):
+    """
+    Standard iterative closest point.
+
+    Assumes src_pc is smaller than trg_pc. Otherwise, this may have questionable performance.
+
+    Args:
+        src_pc (nx3 array): source point cloud; transform T will be applied to this; n<=m should
+            hold true
+        trg_pc (mx3 array): target point cloud
+        T_init (4x4 transform): initial guess for transform
+
+    Returns:
+        (4x4 transform, Optional[distance mse]): T @ src -> trg
+    """
+    src_mean = np.mean(src_pc, axis=0)
+    trg_mean = np.mean(trg_pc, axis=0)
+    src_cent = src_pc - src_mean
+    trg_cent = trg_pc - trg_mean
+
+    src_kd = KDTree(src_pc)
+    target_kd = KDTree(trg_pc)
+
+    if T_init is not None:
+        T0 = np.array(T_init)
+    else:
+        T0 = np.eye(4)
+    prevT = T0
+    T = T0
+    for i in range(max_iters):
+        R = T[:3, :3]
+        p = T[:3, 3]
+        _, close_idxs = target_kd.query((R @ src_pc.T).T + p)
+        close_idxs = np.reshape(close_idxs, -1)
+        # src_mean_filt = np.mean(src_pc[close_idxs], axis=0)
+        trg_mean_filt = np.mean(trg_pc[close_idxs], axis=0)
+        z = src_cent
+        m = trg_pc[close_idxs] - trg_mean_filt
+        Q = m.T @ z
+        U, S, V = np.linalg.svd(Q)  # V is returned already transposed
+        R = U @ np.diag([1, 1, np.linalg.det(U @ V)]) @ V
+        # p = np.mean(target_pc[close_idxs], axis=0) - R @ src_mean
+        p = trg_mean_filt - R @ src_mean
+        T = np.eye(4)
+        T[:3, :3] = R
+        T[:3, 3] = p
+        if np.allclose(prevT, T, atol=tol):
+            break
+        prevT = T
+        if i == max_iters - 1:
+            if verbose:
+                print(f"max iters {max_iters} reached before tolerance {tol}")
+    # mean square error
+    dists, _ = target_kd.query((R @ src_cent.T).T + p)
+    err = np.mean(dists ** 2)
+    if ret_err:
+        return T, err
+    return T
+
+
 def icp_translate(
     source_pc, target_pc, max_iters=20, tol=1e-3, verbose=False, ntheta=3, nphi=3
 ):
