@@ -17,6 +17,7 @@ import yaml
 import burybarrel.colmap_util as cutil
 from burybarrel.image import imgs_from_dir
 from burybarrel.camera import save_v3dcams, RadialCamera
+from burybarrel.mesh import load_mesh
 
 
 @click.command()
@@ -218,6 +219,8 @@ def reconstruct_colmap(img_dir, out_dir, sparse=True, dense=True, overwrite=Fals
         print(mvs_rel)
         subprocess.run(["InterfaceCOLMAP", "-i", mvs_rel, "-o", "scene.mvs"], cwd=openmvs_out, check=True)
         subprocess.run(["DensifyPointCloud", "scene.mvs"], cwd=openmvs_out, check=True)
+        # re-export dense point cloud since openmvs exports it in a format trimesh can't read
+        load_mesh(openmvs_out / "scene_dense.ply").export(openmvs_out / "scene_dense.ply")
         subprocess.run(["ReconstructMesh", "scene_dense.mvs", "-p", "scene_dense.ply"], cwd=openmvs_out, check=True)
         subprocess.run(["RefineMesh", "scene.mvs", "-m", "scene_dense_mesh.ply", "-o", "scene_dense_mesh_refine.mvs"], cwd=openmvs_out, check=True)
         # export as obj since openmvs exports ply textures in a format blender can't read
