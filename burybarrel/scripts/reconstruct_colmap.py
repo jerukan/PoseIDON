@@ -22,9 +22,9 @@ from burybarrel.mesh import load_mesh
 
 @click.command()
 @click.option(
-    "-i",
-    "--imgdir",
-    "img_dir",
+    "-d",
+    "--datadir",
+    "data_dir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
 )
@@ -59,18 +59,20 @@ from burybarrel.mesh import load_mesh
     type=click.BOOL,
     help="Overwrite existing COLMAP database if it exists (it complains by default)",
 )
-def reconstruct_colmap(img_dir, out_dir, sparse=True, dense=True, overwrite=False):
+def reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=False):
     ### colmap code ###
-    img_dir = Path(img_dir)
+    data_dir = Path(data_dir)
+    img_dir = data_dir / "rgb"
     out_dir = Path(out_dir)
     colmap_out = out_dir / "colmap-out"
     openmvs_out = out_dir / "openmvs-out"
     colmap_out.mkdir(parents=True, exist_ok=True)
     openmvs_out.mkdir(parents=True, exist_ok=True)
     database_path = colmap_out / "database.db"
-    camposes_path = out_dir / "cam_poses.json"
-    sparseply_path = out_dir / "sparse.ply"
-    camintrinsics_path = out_dir / "camera.json"
+    camposes_path = colmap_out / "cam_poses.json"
+    sparseply_path = colmap_out / "sparse.ply"
+    # treat as ground truth since we don't have any intrinsics
+    camintrinsics_path = data_dir / "camera.json"
     mvs_dir = colmap_out / "mvs"
     sparsetmp_dir = colmap_out / "sparse_models_tmp"
     sparsetmp_dir.mkdir(parents=True, exist_ok=True)
@@ -220,7 +222,10 @@ def reconstruct_colmap(img_dir, out_dir, sparse=True, dense=True, overwrite=Fals
         subprocess.run(["InterfaceCOLMAP", "-i", mvs_rel, "-o", "scene.mvs"], cwd=openmvs_out, check=True)
         subprocess.run(["DensifyPointCloud", "scene.mvs"], cwd=openmvs_out, check=True)
         # re-export dense point cloud since openmvs exports it in a format trimesh can't read
-        load_mesh(openmvs_out / "scene_dense.ply").export(openmvs_out / "scene_dense.ply")
+        # openmvs exports ply in a format trimesh can't read
+        # trimesh exports ply in a format openmvs can't read (it segfaults ReconstructMesh)
+        # WTF?????????
+        load_mesh(openmvs_out / "scene_dense.ply").export(openmvs_out / "scene_dense_trimeshvalid.ply")
         subprocess.run(["ReconstructMesh", "scene_dense.mvs", "-p", "scene_dense.ply"], cwd=openmvs_out, check=True)
         subprocess.run(["RefineMesh", "scene.mvs", "-m", "scene_dense_mesh.ply", "-o", "scene_dense_mesh_refine.mvs"], cwd=openmvs_out, check=True)
         # export as obj since openmvs exports ply textures in a format blender can't read
