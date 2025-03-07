@@ -1,6 +1,69 @@
+"""
+Everything transforms, rotations, and fun!
+"""
+from typing import List, Dict
+
 import numpy as np
+from numpy.typing import NDArray
+import quaternion
 from sklearn.neighbors import KDTree
 import torch
+import visu3d as v3d
+
+
+def scale_T_translation(T: v3d.Transform, scale) -> v3d.Transform:
+    """Specifically scale translation component of SE(3) transform"""
+    return T.replace(t=T.t * scale)
+
+
+def qangle(q1: quaternion.quaternion, q2: quaternion.quaternion) -> float:
+    """
+    Angle in radians between 2 quaternions.
+    https://math.stackexchange.com/questions/3572459/how-to-compute-the-orientation-error-between-two-3d-coordinate-frames
+    """
+    qerr = q1 * q2.conjugate()
+    if qerr.w < 0:
+        qerr *= -1
+    err = np.atan2(np.sqrt(qerr.x ** 2 + qerr.y ** 2 + qerr.z ** 2), qerr.w)
+    return err
+
+
+def qmean(qs: NDArray[quaternion.quaternion], weights: List[float]=None) -> quaternion.quaternion:
+    """https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions"""
+    if weights is None:
+        weights = np.ones(len(qs))
+    qs = np.squeeze(qs)
+    Q = quaternion.as_float_array(qs * weights).T
+    QQ = Q @ Q.T
+    vals, vecs = np.linalg.eig(QQ)
+    avg = vecs[:, np.argmax(np.abs(vals))]
+    avg = avg / np.linalg.norm(avg)
+    return quaternion.from_float_array(avg)
+
+
+def closest_quat_sym(q1: quaternion.quaternion, q2: quaternion.quaternion, syms: List[Dict]) -> quaternion.quaternion:
+    """
+    Use q1 as reference, brute force rotate q2 using symmetry info and return the closest
+    rotation to q1.
+
+    Args:
+        q1 (quaternion): Reference quaternion.
+        q2 (quaternion): Quaternion to rotate.
+        syms (dict): List of symmetry transformations, each given by a dictionary with:
+            - 'R': 3x3 ndarray with the rotation matrix.
+            - 't': 3x1 ndarray with the translation vector.
+            The BOP toolkit has a function to generate this info.
+
+    Returns:
+        quaternion: q2 rotated to a symmetric rotation closest to q1
+    """
+    errs = []
+    q2_syms = []
+    for sym in syms:
+        q2_sym = q2 * quaternion.from_rotation_matrix(sym["R"])
+        errs.append(qangle(q1, q2_sym))
+        q2_syms.append(q2_sym)
+    return q2_syms[np.argmin(np.abs(errs))]
 
 
 def rotate_pts_to_ax(pts, normal, target, ret_R=False):

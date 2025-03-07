@@ -14,6 +14,7 @@ from visu3d.utils import np_utils
 import yaml
 
 from burybarrel.utils import ext_pattern
+from burybarrel.transform import scale_T_translation
 
 
 class RadialCamera(v3d.PinholeCamera):
@@ -72,6 +73,11 @@ class RadialCamera(v3d.PinholeCamera):
         return points3d
 
 
+def scale_cams(scale: float, cams: v3d.Camera):
+    T = cams.world_from_cam
+    return cams.replace(world_from_cam=scale_T_translation(T, scale))
+
+
 def save_v3dcams(cams: v3d.Camera, imgpaths: List[Union[str, Path]], outpath: Union[str, Path], format="json"):
     """
     {
@@ -128,7 +134,7 @@ def load_v3dcams(path, img_parent=None) -> Tuple[RadialCamera, List[Path]]:
 
     Args:
         path (path-like)
-        img_parent (path-like): parent directory of images if on a different machine (simple
+        img_parent (path-like): parent directory of images if on a different machine (simply
             replaces the parent directory of the image names in the JSON)
 
     Returns:
