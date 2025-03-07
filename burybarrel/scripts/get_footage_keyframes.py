@@ -53,6 +53,8 @@ def get_footage_keyframes(
     denoise_depth=True,
 ):
     """
+    Retrieves keyframes from a video at specified intervals.
+
     Args:
         fps: videos are at 25 fps
     """

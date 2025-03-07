@@ -1,12 +1,18 @@
 import numpy as np
+from tqdm import tqdm
 
 
 def ransac(*data, fit_func=None, loss_func=None, cost_func=None, samp_min=10, inlier_min=10, inlier_thres=0.1, max_iter=1000, seed=None):
     """
+    Standard RANSAC algorithm for arbitrary functions.
+
     Args:
         fit_func (data -> model)
         loss_func ((model, data) -> array): vectorized loss for individual data points
         cost_func ((model, data) -> scalar): total cost to try to minimize
+    
+    Returns:
+        model, inlier_idxs
     """
     rng = np.random.default_rng(seed)
     best_model = None
@@ -14,7 +20,7 @@ def ransac(*data, fit_func=None, loss_func=None, cost_func=None, samp_min=10, in
     best_inliers = []
     best_error = float("inf")
 
-    for _ in range(max_iter):
+    for _ in tqdm(range(max_iter), desc="Running RANSAC"):
         sample_indices = rng.choice(len(data[0]), samp_min, replace=False)
         sample = [singledata[sample_indices] for singledata in data]
 

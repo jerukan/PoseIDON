@@ -41,7 +41,7 @@ def qmean(qs: NDArray[quaternion.quaternion], weights: List[float]=None) -> quat
     return quaternion.from_float_array(avg)
 
 
-def closest_quat_sym(q1: quaternion.quaternion, q2: quaternion.quaternion, syms: List[Dict]) -> quaternion.quaternion:
+def closest_quat_sym(q1: quaternion.quaternion, q2: quaternion.quaternion, syms: List[Dict]=None) -> quaternion.quaternion:
     """
     Use q1 as reference, brute force rotate q2 using symmetry info and return the closest
     rotation to q1.
@@ -57,6 +57,8 @@ def closest_quat_sym(q1: quaternion.quaternion, q2: quaternion.quaternion, syms:
     Returns:
         quaternion: q2 rotated to a symmetric rotation closest to q1
     """
+    if syms is None:
+        return q2
     errs = []
     q2_syms = []
     for sym in syms:

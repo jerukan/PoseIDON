@@ -2,17 +2,16 @@ import json
 import os
 from pathlib import Path
 import sys
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import dataclass_array as dca
 import jax.numpy as jnp
 from jax import grad
-import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
-import pycolmap
 import quaternion
+from tqdm import tqdm
 import transforms3d as t3d
 import trimesh
 import visu3d as v3d
@@ -28,6 +27,7 @@ from burybarrel.camera import load_v3dcams
 from burybarrel.transform import icp, scale_T_translation, qangle, qmean, closest_quat_sym
 from burybarrel.mesh import segment_pc_from_masks
 from burybarrel.estimators import ransac
+from burybarrel.utils import match_lists
 
 
 def scale_cams(scale: float, cams: v3d.Camera):
@@ -116,13 +116,13 @@ def fit_foundpose_multiview(
     foundpose_estimates: List[Dict],
     names: List[str],
     cameras: v3d.Camera,
-    masks: NDArray,
     objectmesh: trimesh.Trimesh,
+    masks: NDArray = None,
     scenepts: v3d.Point3d = None,
     objectsymmetries: List[Dict] = None,
     use_coarse: bool = False,
     use_icp: bool = False,
-) -> List[Dict]:
+) -> Tuple[List[Dict], v3d.Transform, float]:
     cams = cameras
     # names, cameras are already assumed to be ordered and filtered
     # depending on failed registration in COLMAP or SAM masks
@@ -177,7 +177,7 @@ def fit_foundpose_multiview(
         meshsamp, _ = trimesh.sample.sample_surface(objectmesh, count=len(segidxs))
         objinscenepts = sceneptsscaled[segidxs]
         tmpT = []
-        for i, obj2world in enumerate(obj2worldsinlier):
+        for i, obj2world in enumerate(tqdm(obj2worldsinlier, desc="Running ICP on inlier poses")):
             samp_trf = obj2world @ meshsamp
             icpT = v3d.Transform.from_matrix(icp(objinscenepts.p, samp_trf))
             tmpT.append(icpT.inv @ obj2world)
@@ -209,28 +209,74 @@ def fit_foundpose_multiview(
             "t": obj2cam.t.tolist(),
         }
         estposes.append(posedata)
-    return estposes
+    return estposes, meanT, scalefactor
 
 
-def load_fit_write(datadir: Path, resdir: Path, use_coarse: bool=False, use_icp: bool=False):
+def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False):
     datadir = Path(datadir)
     resdir = Path(resdir)
+    objdir = Path(objdir)
+    datainfo_path = datadir / "info.json"
     camposes_path = resdir / "colmap-out/cam_poses.json"
     scene_path = resdir / "openmvs-out/scene_dense.ply"
     foundpose_res_path = resdir / "foundpose-output/inference/estimated-poses.json"
     imgdir = datadir / "rgb"
     maskdir = resdir / "sam-masks"
 
+    with open(objdir / "model_info.json", "rt") as f:
+        objinfo = yaml.safe_load(f)
+    with open(datainfo_path, "rt") as f:
+        datainfo = yaml.safe_load(f)
+    symTs = get_symmetry_transformations(objinfo[datainfo["object_name"]], 0.01)
+    obj_path = objdir / datainfo["object_name"]
+    mesh = trimesh.load(obj_path)
     trimeshpc: trimesh.PointCloud = trimesh.load(scene_path)
     scenevtxs, scenecols = trimeshpc.vertices, trimeshpc.colors[:, :3]
     scenepts = v3d.Point3d(p=scenevtxs, rgb=scenecols)
     cams, imgpaths = load_v3dcams(camposes_path, img_parent=imgdir)
-    imgs = [np.array(Image.open(imgpath).convert("RGB")) for imgpath in imgpaths]
+    imgs = np.array([np.array(Image.open(imgpath).convert("RGB")) for imgpath in imgpaths])
     # camera names are just the filenames without extension
-    camnames = [campath.stem for campath in campaths]
+    imgnames = [imgpath.stem for imgpath in imgpaths]
     maskpaths, masks = imgs_from_dir(maskdir, asarray=True, grayscale=True)
     masks = masks / 255
+    masknames = [maskpath.stem for maskpath in maskpaths]
+    # COLMAP and SAM may not succeed for all images, so only keep registered images
+    imgidxs, maskidxs = match_lists(imgnames, masknames)
+    filtnames = [imgnames[i] for i in imgidxs]
+    filtcams = cams[imgidxs]
+    filtmasks = masks[maskidxs]
+    filtimgs = imgs[imgidxs]
+
     # v3d.make_fig([cams, scenepts])
     with open(foundpose_res_path, "rt") as f:
         foundpose_res = yaml.safe_load(f)
+    
+    results, meanT, scalefactor = fit_foundpose_multiview(
+        foundpose_res,
+        filtnames,
+        filtcams,
+        mesh,
+        masks=filtmasks,
+        scenepts=scenepts,
+        objectsymmetries=symTs,
+        use_coarse=use_coarse,
+        use_icp=use_icp,
+    )
+    camscaled = scale_cams(scalefactor, filtcams)
 
+    coarsestr = "coarse" if use_coarse else "refine"
+    icpstr = "icp" if use_icp else "noicp"
+    estimate_dir = resdir / f"fit-output/est-{coarsestr}-{icpstr}"
+    estimate_dir.mkdir(exist_ok=True, parents=True)
+    overlaydir = estimate_dir / f"fit-overlays"
+    overlaydir.mkdir(exist_ok=True)
+    for i, img in enumerate(tqdm(filtimgs, desc="Rendering fit overlay results")):
+        imgname = filtnames[i]
+        rgb, _, _ = render_model(camscaled[i], mesh, meanT, light_intensity=40.0)
+        overlayimg = to_contour(rgb, color=(255, 0, 0), background=img)
+        Image.fromarray(overlayimg).save(overlaydir / f"{imgname}.png")
+        # Image.fromarray(render_v3d(camscaled[i], meanT @ meshpts, radius=4, background=img)).save(overlaydir / f"{imgpaths[i].stem}.png")
+    with open(estimate_dir / f"estimated-poses.json", "wt") as f:
+        json.dump(results, f)
+    with open(estimate_dir / f"reconstruction-info.json", "wt") as f:
+        json.dump({"scalefactor": scalefactor, "obj2world": meanT.matrix4x4.tolist()}, f)

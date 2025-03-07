@@ -17,6 +17,39 @@ def ext_pattern(extension):
     return "*." + "".join("[%s%s]" % (e.lower(), e.upper()) for e in extension)
 
 
+def index_array_or_list(arr_or_list, elem) -> int:
+    """
+    Like list.index() but for numpy arrays too. Will only return the first index.
+    """
+    if isinstance(arr_or_list, np.ndarray):
+        return np.where(arr_or_list == elem)[0][0]
+    elif isinstance(arr_or_list, list):
+        return arr_or_list.index(elem)
+    raise TypeError()
+
+
+def match_lists(*lists: List[List]) -> List[int]:
+    """
+    Finds the indices of elements that are common to all lists.
+
+    The returned indices will index elements from each list in the same order.
+    """
+    reflist = lists[0]
+    otherlists = lists[1:]
+    matchidxs: List[List] = [[] for _ in lists]
+    for i, elem in enumerate(reflist):
+        inalllists = True
+        for j, otherlist in enumerate(otherlists):
+            if elem not in otherlist:
+                inalllists = False
+                break
+        if inalllists:
+            matchidxs[0].append(i)
+            for j, otherlist in enumerate(otherlists):
+                matchidxs[j + 1].append(index_array_or_list(otherlist, elem))
+    return matchidxs
+
+
 def cmapvals(vals, cmap="viridis", vmin=None, vmax=None):
     """Maps a list of values to corresponding RGB values in a matplotlib colormap."""
     cmap = plt.get_cmap(cmap)
