@@ -1,7 +1,8 @@
 import click
 
 from burybarrel.scripts import (
-    create_masks, reconstruct_colmap, reconstruct_dust3r, get_footage_keyframes, run_foundpose_fit
+    create_masks, reconstruct_colmap, reconstruct_dust3r, get_footage_keyframes, run_foundpose_fit,
+    run_foundpose
 )
 
 
@@ -30,6 +31,7 @@ cli.add_command(get_footage_keyframes)
 cli.add_command(reconstruct_colmap)
 cli.add_command(reconstruct_dust3r)
 cli.add_command(run_foundpose_fit)
+cli.add_command(run_foundpose)
 
 
 if __name__ == "__main__":

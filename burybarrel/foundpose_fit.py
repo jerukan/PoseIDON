@@ -12,7 +12,6 @@ from numpy.typing import NDArray
 from PIL import Image
 import quaternion
 from tqdm import tqdm
-import transforms3d as t3d
 import trimesh
 import visu3d as v3d
 import yaml
