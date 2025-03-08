@@ -3,13 +3,14 @@ from pathlib import Path
 import subprocess
 
 import click
+import torch
 import yaml
 
 
 @click.command()
 @click.option(
-    "-d",
-    "--datadir",
+    "-i",
+    "--indir",
     "datadir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
@@ -42,13 +43,24 @@ import yaml
     type=click.Path(exists=True, file_okay=True),
     help="Path to Python binary (activate your virutal environment and do `which python`)"
 )
-def run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None):
+@click.option(
+    "-d",
+    "--device",
+    "device",
+    type=click.STRING,
+)
+def run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device=None):
+    _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=pythonbinpath, device=device)
+
+def _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device=None):
     """
     Run from a modified foundpose repo from here to generate foundpose output in the
     desired file structure.
 
     And reduce the clutter of configs in foundpose probably.
     """
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
     datadir = Path(datadir)
     resdir = Path(resdir)
     objdir = Path(objdir)
@@ -68,6 +80,7 @@ def run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None):
     basetemplate["common_opts"]["object_path"] = str(objdir / datainfo["object_name"])
     basetemplate["common_opts"]["output_path"] = str(foundpose_outdir)
     basetemplate["common_opts"]["cam_json_path"] = str(datadir / "camera.json")
+    basetemplate["common_opts"]["device"] = device
     basetemplate["infer_opts"]["dataset_path"] = str(datadir / "rgb")
     basetemplate["infer_opts"]["mask_path"] = str(resdir / "sam-masks")
     newcfgpath = foundpose_outdir / "config.yaml"

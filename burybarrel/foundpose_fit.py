@@ -190,10 +190,8 @@ def fit_foundpose_multiview(
         quatssymd.append(best)
     quatssymd = np.array(quatssymd)
     obj2worldsinliersym = obj2worldsinlier.replace(R=quaternion.as_rotation_matrix(quatssymd))
-    v3d.make_fig(*get_axes_traces(obj2worldsinliersym))
 
     qmeanransac, qinliers = ransac(quatssymd, fit_func=qmean, loss_func=qloss, cost_func=qcost, samp_min=5, inlier_min=5, inlier_thres=0.2, max_iter=50)
-    qmeanransac, qinliers
 
     meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmeanransac), t=np.mean(obj2worldsinliersym.t, axis=0))
 

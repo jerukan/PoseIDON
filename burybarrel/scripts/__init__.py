@@ -4,3 +4,4 @@ from burybarrel.scripts.reconstruct_dust3r import reconstruct_dust3r
 from burybarrel.scripts.get_footage_keyframes import get_footage_keyframes
 from burybarrel.scripts.run_foundpose_fit import run_foundpose_fit
 from burybarrel.scripts.run_foundpose import run_foundpose
+from burybarrel.scripts.full_pipeline import run_full_pipeline
