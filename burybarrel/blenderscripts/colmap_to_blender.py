@@ -17,16 +17,21 @@ import numpy as np
 print("CURRENT WORKING DIRECTORY")
 print(os.getcwd())
 # reference model mesh
-# reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/Munitions_Models/depth_charge_mark_9_mod_1-scaled.ply")
+# reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/depth_charge_mark_9_mod_1-scaled.ply")
 reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply")
 
 # reconstruction paths
-# reconstruct_dense_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/openmvs-out/scene_dense.ply")
 # reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/openmvs-out/scene_dense_mesh_refine_texture.obj")
 # camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/cam_poses.json")
 
-reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2-reconstr/openmvs-out/scene_dense_mesh_refine_texture.obj")
-camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2-reconstr/cam_poses.json")
+# reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2/openmvs-out/scene_dense_mesh_refine_texture.obj")
+# camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2/colmap-out/cam_poses.json")
+
+# reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrelddt1/openmvs-out/scene_dense_mesh_refine_texture.obj")
+# camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrelddt1/colmap-out/cam_poses.json")
+
+reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel4/openmvs-out/scene_dense_mesh_refine_texture.obj")
+camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel4/colmap-out/cam_poses.json")
 
 with open(camposes_path, "rt") as f:
     camposes = json.load(f)

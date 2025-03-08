@@ -156,6 +156,7 @@ def reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=Fal
         reconstruction = pycolmap.Reconstruction(sparsetmp_dir / "0")
         cams, camnames = cutil.get_cams_v3d(reconstruction, return_names=True)
         specs: RadialCamera = cams.spec
+        # medians due to outlier cameras appearing sometimes
         med_f = np.median(specs.K[:, 0, 0])
         med_k1 = np.median(specs.k1k2[:, 0])
         med_k2 = np.median(specs.k1k2[:, 1])
