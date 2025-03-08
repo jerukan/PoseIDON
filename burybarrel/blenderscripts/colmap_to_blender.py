@@ -30,8 +30,11 @@ reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/mo
 # reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrelddt1/openmvs-out/scene_dense_mesh_refine_texture.obj")
 # camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrelddt1/colmap-out/cam_poses.json")
 
-reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel4/openmvs-out/scene_dense_mesh_refine_texture.obj")
-camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel4/colmap-out/cam_poses.json")
+# reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel4/openmvs-out/scene_dense_mesh_refine_texture.obj")
+# camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel4/colmap-out/cam_poses.json")
+
+reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel1/openmvs-out/scene_dense_mesh_refine_texture.obj")
+camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel1/colmap-out/cam_poses.json")
 
 with open(camposes_path, "rt") as f:
     camposes = json.load(f)

@@ -12,7 +12,7 @@ from burybarrel.image import apply_clahe
 
 
 @click.command()
-@click.option("-i", "--input", "input_vid", required=True, type=click.Path(exists=True, dir_okay=False), help="input video path")
+@click.option("-i", "--input", "input_path", required=True, type=click.Path(exists=True, dir_okay=False), help="input video path")
 @click.option("-o", "--output", "output_dir", required=False, type=click.Path(file_okay=False), help="output dir")
 @click.option("-t", "--time", "start_time", required=False, type=click.STRING, help="start time of the video")
 @click.option("--tz", "timezone", required=False, type=click.STRING, help="timezone")
