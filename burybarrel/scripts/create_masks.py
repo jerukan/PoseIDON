@@ -115,7 +115,7 @@ def _create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold
         logits = results["scores"]
 
         if len(masks) == 0:
-            print(f"No objects of the '{text_prompt}' prompt detected in the image.")
+            print(f"No objects of the '{text_prompt}' prompt detected in image {imgpath}")
         else:
             masks_np = [(mask * 255).astype(np.uint8) for mask in masks]
             if closekernelsize > 0:
@@ -159,23 +159,26 @@ def _create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold
                 #     elif rects[j].contains(rects[i]):
                 #         validmask[j] = False
             # best_idx = np.argmin(boxareas)
-            maxvalididx = np.argmax(maskareas[validmask])
-            best_idx = np.arange(len(rects))[validmask][maxvalididx]
+            if len(maskareas[validmask]) == 0:
+                print(f"No valid masks after filtering for {imgpath}")
+            else:
+                maxvalididx = np.argmax(maskareas[validmask])
+                best_idx = np.arange(len(rects))[validmask][maxvalididx]
 
-            # save masks
-            for i, mask_np in enumerate(masks_np):
-                # each box is x_min, y_min, x_max, y_max
-                bbox = boxes[i]
-                mask_path = maskdebug_dir / f"{imgpath.stem}_mask_{i+1}.png"
+                # save masks
+                for i, mask_np in enumerate(masks_np):
+                    # each box is x_min, y_min, x_max, y_max
+                    bbox = boxes[i]
+                    mask_path = maskdebug_dir / f"{imgpath.stem}_mask_{i+1}.png"
+                    mask_image = Image.fromarray(mask_np)
+                    mask_image.save(mask_path)
+
+                bbox = boxes[best_idx]
+                mask_np = masks_np[best_idx]
+                mask_path = outdir / f"{imgpath.stem}.png"
                 mask_image = Image.fromarray(mask_np)
                 mask_image.save(mask_path)
-
-            bbox = boxes[best_idx]
-            mask_np = masks_np[best_idx]
-            mask_path = outdir / f"{imgpath.stem}.png"
-            mask_image = Image.fromarray(mask_np)
-            mask_image.save(mask_path)
-            bboxes.append(bbox)
+                bboxes.append(bbox)
 
     bboxes = np.array(bboxes, dtype=int)
     with open(outdir / "bboxes.pickle", "wb") as f:
