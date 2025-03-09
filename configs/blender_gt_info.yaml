@@ -36,3 +36,9 @@ dive3-depthcharge-03-04:
   R: [-147.863, -20.7501, 98.8496]
   model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/depth_charge_mark_9_mod_1-scaled.ply
   camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04/colmap-out/cam_poses.json
+dive3-mousetrap-13-10:
+  scalefactor: 16.8977
+  t: [-1.0275, 2.88686, 71.5575]
+  R: [-47.1332, -14.2211, -12.845]
+  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/mousetrap-scaled.ply
+  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-mousetrap-13-10/colmap-out/cam_poses.json
