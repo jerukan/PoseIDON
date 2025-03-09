@@ -19,29 +19,27 @@ print(os.getcwd())
 # reference model mesh
 # reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/depth_charge_mark_9_mod_1-scaled.ply")
 reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply")
+# reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/mousetrap-scaled.ply")
+# reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/smoke_float_mark_1-scaled.ply")
 
 # reconstruction paths
-# reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/openmvs-out/scene_dense_mesh_refine_texture.obj")
-# camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04-reconstr/cam_poses.json")
-
-# reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2/openmvs-out/scene_dense_mesh_refine_texture.obj")
-# camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2/colmap-out/cam_poses.json")
-
-# reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrelddt1/openmvs-out/scene_dense_mesh_refine_texture.obj")
-# camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrelddt1/colmap-out/cam_poses.json")
-
-# reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel4/openmvs-out/scene_dense_mesh_refine_texture.obj")
-# camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel4/colmap-out/cam_poses.json")
-
-reconstruct_mesh_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel1/openmvs-out/scene_dense_mesh_refine_texture.obj")
-camposes_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel1/colmap-out/cam_poses.json")
+name = "dive8-barrel-10-24"
+reconstruct_mesh_path = Path(f"/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/{name}/openmvs-out/scene_dense_mesh_refine_texture.obj")
+camposes_path = Path(f"/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/{name}/colmap-out/cam_poses.json")
+print(f"LOADING THE FOLLOWING PATHS: {reconstruct_mesh_path}, {camposes_path}")
 
 with open(camposes_path, "rt") as f:
     camposes = json.load(f)
 
+# scene settings
 w, h = camposes[0]["width"], camposes[0]["height"]
+# camera width height is tied to viewport resolution
 bpy.context.scene.render.resolution_x = w
 bpy.context.scene.render.resolution_y = h
+# local transforms for translation and rotation, since this makes it easier to move it around
+bpy.context.scene.transform_orientation_slots[1].type = "LOCAL"
+bpy.context.scene.transform_orientation_slots[2].type = "LOCAL"
+
 
 # clearing every object in the current scene (don't accidentally run this in the wrong scene)
 bpy.ops.object.select_all(action="SELECT")

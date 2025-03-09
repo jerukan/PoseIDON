@@ -141,7 +141,6 @@ def reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=Fal
                 "init_max_error": 8.0,
                 "init_max_reg_trials": 4,
                 "init_min_num_inliers": 20,
-                "init_max_reg_trials": 4,
                 "max_reg_trials": 6,
             }
         }
@@ -227,6 +226,9 @@ def reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=Fal
         # trimesh exports ply in a format openmvs can't read (it segfaults ReconstructMesh)
         # WTF?????????
         load_mesh(openmvs_out / "scene_dense.ply").export(openmvs_out / "scene_dense_trimeshvalid.ply")
+        # these .dmap depth maps aren't needed after densifying, and they take a lot of space
+        for dmappath in openmvs_out.glob("*.dmap"):
+            dmappath.unlink()
         subprocess.run(["ReconstructMesh", "scene_dense.mvs", "-p", "scene_dense.ply"], cwd=openmvs_out, check=True)
         subprocess.run(["RefineMesh", "scene.mvs", "-m", "scene_dense_mesh.ply", "-o", "scene_dense_mesh_refine.mvs"], cwd=openmvs_out, check=True)
         # export as obj since openmvs exports ply textures in a format blender can't read
