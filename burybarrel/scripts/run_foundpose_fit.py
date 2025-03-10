@@ -43,9 +43,16 @@ from burybarrel.foundpose_fit import load_fit_write
     type=click.BOOL,
     help="run icp before rotation averaging",
 )
-def run_foundpose_fit(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False):
-    _run_foundpose_fit(datadir, resdir, objdir, use_coarse=use_coarse, use_icp=use_icp)
+@click.option(
+    "--seed",
+    "seed",
+    default=0,
+    type=click.INT,
+    help="rng seed yeah",
+)
+def run_foundpose_fit(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None):
+    _run_foundpose_fit(datadir, resdir, objdir, use_coarse=use_coarse, use_icp=use_icp, seed=seed)
 
 
-def _run_foundpose_fit(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False):
-    load_fit_write(datadir, resdir, objdir, use_coarse=use_coarse, use_icp=use_icp)
+def _run_foundpose_fit(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None):
+    load_fit_write(datadir, resdir, objdir, use_coarse=use_coarse, use_icp=use_icp, seed=seed)

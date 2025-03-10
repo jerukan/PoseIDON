@@ -121,6 +121,7 @@ def fit_foundpose_multiview(
     objectsymmetries: List[Dict] = None,
     use_coarse: bool = False,
     use_icp: bool = False,
+    seed = None,
 ) -> Tuple[List[Dict], v3d.Transform, float]:
     cams = cameras
     # names, cameras are already assumed to be ordered and filtered
@@ -160,7 +161,7 @@ def fit_foundpose_multiview(
     obj2cams = dca.stack(obj2cams)
     camhyps = dca.stack(camhyps)
 
-    model, inlieridxs = ransac(camhyps.world_from_cam.matrix4x4, obj2cams.matrix4x4, fit_func=fitcams, loss_func=camloss, cost_func=camcost, samp_min=5, inlier_min=5, inlier_thres=0.15, max_iter=50)
+    model, inlieridxs = ransac(camhyps.world_from_cam.matrix4x4, obj2cams.matrix4x4, fit_func=fitcams, loss_func=camloss, cost_func=camcost, samp_min=5, inlier_min=5, inlier_thres=0.15, max_iter=50, seed=seed)
 
     scalefactor = model.scale
     camscaled = scale_cams(scalefactor, cams)
@@ -191,7 +192,7 @@ def fit_foundpose_multiview(
     quatssymd = np.array(quatssymd)
     obj2worldsinliersym = obj2worldsinlier.replace(R=quaternion.as_rotation_matrix(quatssymd))
 
-    qmeanransac, qinliers = ransac(quatssymd, fit_func=qmean, loss_func=qloss, cost_func=qcost, samp_min=5, inlier_min=5, inlier_thres=0.2, max_iter=50)
+    qmeanransac, qinliers = ransac(quatssymd, fit_func=qmean, loss_func=qloss, cost_func=qcost, samp_min=5, inlier_min=5, inlier_thres=0.2, max_iter=50, seed=seed)
 
     meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmeanransac), t=np.mean(obj2worldsinliersym.t, axis=0))
 

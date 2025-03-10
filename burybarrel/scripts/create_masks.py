@@ -134,40 +134,38 @@ def _create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold
         bbox_mask_path.parent.mkdir(parents=True, exist_ok=True)
         display_image_with_masks(image_pil, masks_np, boxes, scores, mask_scores, figwidth=13, savefig=bbox_mask_path, all_masks=True, show=False, show_confidence=True)
 
-        # # jank workaround for excluding those masks that are just supersets
-        # # of the barrel itself
-        # # reminder: [x_min, y_min, x_max, y_max]
-        # # as it turns out jellyfish are detected for some reason, and they are smaller
-        # # welp, just take the first one, it's usually the barrel anyway right?
-        # rects = np.array([Polygon([(box[0], box[1]), (box[2], box[1]), (box[2], box[3]), (box[0], box[3])]) for box in boxes])
-        # boxareas = np.array([rect.area for rect in rects])
-        # maskareas = np.array([np.sum(mask_np > 0) for mask_np in masks_np])
-        # validmask = np.ones(len(rects), dtype=bool)
-        # for i in range(len(rects)):
-        #     if not validmask[i]:
-        #         continue
-        #     if rects[i].area > 0.8 * w * h:
-        #         # specifically for this data, objects should not cover more than 80% of the
-        #         # image (in fact, it probably should not cover more than 20%)
-        #         # this is specifically for those goofy bounding boxes that cover the whole
-        #         # image for some reason
-        #         validmask[i] = False
-        #         continue
-        #     # for j in range(i+1, len(rects)):
-        #     #     # remove superset bounding boxes
-        #     #     if not validmask[j]:
-        #     #         continue
-        #     #     if rects[i].contains(rects[j]):
-        #     #         validmask[i] = False
-        #     #     elif rects[j].contains(rects[i]):
-        #     #         validmask[j] = False
-        # # best_idx = np.argmin(boxareas)
-        # if len(maskareas[validmask]) == 0:
-        #     print(f"No valid masks after filtering for {imgpath}")
-        #     continue
-        # maxvalididx = np.argmax(maskareas[validmask])
-        # best_idx = np.arange(len(rects))[validmask][maxvalididx]
-        best_idx = np.argmax(scores)
+        # jank workaround for excluding those masks that are just supersets
+        # of the barrel itself
+        # reminder: [x_min, y_min, x_max, y_max]
+        # as it turns out jellyfish are detected for some reason, and they are smaller
+        # welp, just take the first one, it's usually the barrel anyway right?
+        rects = np.array([Polygon([(box[0], box[1]), (box[2], box[1]), (box[2], box[3]), (box[0], box[3])]) for box in boxes])
+        boxareas = np.array([rect.area for rect in rects])
+        maskareas = np.array([np.sum(mask_np > 0) for mask_np in masks_np])
+        validmask = np.ones(len(rects), dtype=bool)
+        for i in range(len(rects)):
+            if not validmask[i]:
+                continue
+            if rects[i].area > 0.8 * w * h:
+                # specifically for this data, objects should not cover more than 80% of the
+                # image (in fact, it probably should not cover more than 20%)
+                # this is specifically for those goofy bounding boxes that cover the whole
+                # image for some reason
+                validmask[i] = False
+                continue
+            # for j in range(i+1, len(rects)):
+            #     # remove superset bounding boxes
+            #     if not validmask[j]:
+            #         continue
+            #     if rects[i].contains(rects[j]):
+            #         validmask[i] = False
+            #     elif rects[j].contains(rects[i]):
+            #         validmask[j] = False
+        # best_idx = np.argmin(boxareas)
+        if len(maskareas[validmask]) == 0:
+            print(f"No valid masks after filtering for {imgpath}")
+            continue
+        best_idx = np.arange(len(boxes))[validmask][np.argmax(scores[validmask])]
 
         # save masks
         for i, mask_np in enumerate(masks_np):
