@@ -50,6 +50,7 @@ for c in bpy.context.scene.collection.children:
 bpy.ops.wm.ply_import(filepath=str(reference_model_path))
 # bpy.ops.wm.ply_import(filepath=str(reconstruct_dense_path))
 bpy.ops.wm.obj_import(filepath=str(reconstruct_mesh_path), up_axis="Z", forward_axis="Y")
+bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align="WORLD", location=(0, 0, 0), scale=(1, 1, 1))
 
 camcollection = bpy.data.collections.new("ReconstructedCameras")
 bpy.context.scene.collection.children.link(camcollection)

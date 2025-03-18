@@ -1,11 +1,28 @@
+import json
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Union
 
 import matplotlib as mpl
 from matplotlib import cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import yaml
+
+
+def add_to_json(data: Dict, path: Union[Path, str]):
+    """
+    Adds data or modifies existing keys to a JSON file.
+    """
+    with open(path, "rt") as f:
+        jsondata = yaml.safe_load(f)
+    jsondata = {
+        **jsondata,
+        # put second to overwrite existing keys
+        **data,
+    }
+    with open(path, "wt") as f:
+        json.dump(jsondata, f, indent=4)
 
 
 def ext_pattern(extension):
