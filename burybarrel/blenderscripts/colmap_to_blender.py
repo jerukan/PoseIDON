@@ -18,12 +18,12 @@ print("CURRENT WORKING DIRECTORY")
 print(os.getcwd())
 # reference model mesh
 # reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/depth_charge_mark_9_mod_1-scaled.ply")
-reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply")
-# reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/mousetrap-scaled.ply")
+# reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply")
+reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/mousetrap-scaled.ply")
 # reference_model_path = Path("/Users/jerry/Projects/ms-stuff/barrel-playground/models3d/smoke_float_mark_1-scaled.ply")
 
 # reconstruction paths
-name = "dive8-barrel-10-24"
+name = "dive3-mousetrap-13-10"
 reconstruct_mesh_path = Path(f"/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/{name}/openmvs-out/scene_dense_mesh_refine_texture.obj")
 camposes_path = Path(f"/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/{name}/colmap-out/cam_poses.json")
 print(f"LOADING THE FOLLOWING PATHS: {reconstruct_mesh_path}, {camposes_path}")
@@ -50,6 +50,7 @@ for c in bpy.context.scene.collection.children:
 bpy.ops.wm.ply_import(filepath=str(reference_model_path))
 # bpy.ops.wm.ply_import(filepath=str(reconstruct_dense_path))
 bpy.ops.wm.obj_import(filepath=str(reconstruct_mesh_path), up_axis="Z", forward_axis="Y")
+bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align="WORLD", location=(0, 0, 0), scale=(1, 1, 1))
 
 camcollection = bpy.data.collections.new("ReconstructedCameras")
 bpy.context.scene.collection.children.link(camcollection)

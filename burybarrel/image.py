@@ -169,9 +169,9 @@ def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1, background=None) 
     return img
 
 
-def render_model(cam: v3d.Camera, mesh: trimesh.Geometry, transform: v3d.Transform, light_intensity=2.4):
+def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.Trimesh]], transforms: v3d.Transform, light_intensity=2.4, flags=pyrender.RenderFlags.NONE) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Renders a mesh in a given pose for a given camera view.
+    Renders meshes in given poses for a given camera view.
 
     Returns:
         (np.ndarray, np.ndarray, np.ndarray): uint8 color (hxwh3), depth (hxw), mask (hxw)
@@ -187,13 +187,22 @@ def render_model(cam: v3d.Camera, mesh: trimesh.Geometry, transform: v3d.Transfo
         znear=0.05,
         zfar=3000.0  
     )
-    pyrendermesh = pyrender.Mesh.from_trimesh(mesh)
+    if isinstance(meshes, trimesh.Geometry):
+        meshes = [meshes]
+    if isinstance(transforms, list):
+        transforms = dca.stack(transforms)
+    transforms = transforms.reshape((-1,))
+    pyrendermeshes = [pyrender.Mesh.from_trimesh(mesh) for mesh in meshes]
     camrot = v3d.Transform.from_angle(x=np.pi, y=0, z=0)
     oglcamT: v3d.Transform = cam.world_from_cam @ camrot
 
     ambient_light = np.array([0.02, 0.02, 0.02, 1.0])
     scene = pyrender.Scene(bg_color=np.zeros(4), ambient_light=ambient_light)
-    meshnode = pyrender.Node(mesh=pyrendermesh, matrix=transform.matrix4x4)
+    meshnodes = []
+    for pyrendermesh, transform in zip(pyrendermeshes, transforms):
+        meshnode = pyrender.Node(mesh=pyrendermesh, matrix=transform.matrix4x4)
+        scene.add_node(meshnode)
+        meshnodes.append(meshnode)
     camnode = pyrender.Node(camera=pyrendercam, matrix=oglcamT.matrix4x4)
     # light = pyrender.SpotLight(
     #     color=np.ones(3),
@@ -203,10 +212,9 @@ def render_model(cam: v3d.Camera, mesh: trimesh.Geometry, transform: v3d.Transfo
     # )
     light = pyrender.PointLight(color=np.ones(3), intensity=light_intensity)
     lightnode = pyrender.Node(light=light, matrix=oglcamT.matrix4x4)
-    scene.add_node(meshnode)
     scene.add_node(camnode)
     scene.add_node(lightnode)
-    color, depth = renderer.render(scene)
+    color, depth = renderer.render(scene, flags=flags)
     mask = depth > 0
     renderer.delete()
     return color, depth, mask
