@@ -80,7 +80,7 @@ def create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=
 
 def _create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold=0.25, mask_threshold=0.0, closekernelsize: int=0, convexhull=False, device=None):
     from lang_sam import LangSAM
-    from lang_sam.models import sam
+    from lang_sam.models import sam, gdino
     from sam2.sam2_image_predictor import SAM2ImagePredictor
 
     imgdir = Path(imgdir)
@@ -93,6 +93,7 @@ def _create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold
 
     if device is not None:
         sam.DEVICE = device
+        gdino.DEVICE = device
     # langsam_model = LangSAM(sam_type="sam2.1_hiera_small")
     langsam_model = LangSAM(sam_type="sam2.1_hiera_large")
     # hook in SAM model with different parameters
