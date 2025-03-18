@@ -68,8 +68,11 @@ def closest_quat_sym(q1: quaternion.quaternion, q2: quaternion.quaternion, syms:
     return q2_syms[np.argmin(np.abs(errs))]
 
 
-def rotate_pts_to_ax(pts, normal, target, ret_R=False):
-    normal = np.array(normal, dtype=float)
+def get_axes_rot(axis, target):
+    """
+    Get rotation matrix that rotates from given axis to target axis.
+    """
+    normal = np.array(axis, dtype=float)
     target = np.array(target, dtype=float)
     ang = np.arccos(
         (target @ normal) / (np.linalg.norm(target) * np.linalg.norm(normal))
@@ -85,6 +88,11 @@ def rotate_pts_to_ax(pts, normal, target, ret_R=False):
         + (np.sin(ang) / ang) * thetahat
         + ((1 - np.cos(ang)) / ang**2) * (thetahat @ thetahat)
     )
+    return R
+
+
+def rotate_pts_to_ax(pts, normal, target, ret_R=False):
+    R = get_axes_rot(normal, target)
     rotscenexyz = (R @ pts.T).T
     if ret_R:
         return rotscenexyz, R

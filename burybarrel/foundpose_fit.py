@@ -10,6 +10,7 @@ from jax import grad
 import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
+import pyransac3d as pyrsc
 import quaternion
 from tqdm import tqdm
 import trimesh
@@ -20,10 +21,10 @@ sys.path.append(os.path.abspath(os.path.join("bop_toolkit")))
 from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations
 
 import burybarrel.colmap_util as cutil
-from burybarrel.image import render_v3d, render_model, to_contour, imgs_from_dir
+from burybarrel.image import render_v3d, render_models, to_contour, imgs_from_dir
 from burybarrel.plotting import get_axes_traces
 from burybarrel.camera import load_v3dcams
-from burybarrel.transform import icp, scale_T_translation, qangle, qmean, closest_quat_sym
+from burybarrel.transform import icp, scale_T_translation, qangle, qmean, closest_quat_sym, get_axes_rot
 from burybarrel.mesh import segment_pc_from_masks
 from burybarrel.estimators import ransac
 from burybarrel.utils import match_lists
@@ -122,7 +123,7 @@ def fit_foundpose_multiview(
     use_coarse: bool = False,
     use_icp: bool = False,
     seed = None,
-) -> Tuple[List[Dict], v3d.Transform, float]:
+) -> Tuple[List[Dict], v3d.Transform, float, float]:
     cams = cameras
     # names, cameras are already assumed to be ordered and filtered
     # depending on failed registration in COLMAP or SAM masks
@@ -169,11 +170,11 @@ def fit_foundpose_multiview(
     obj2worlds = camhypsscaled.world_from_cam @ obj2cams
     obj2worldsinlier: v3d.Transform = obj2worlds[inlieridxs]
 
+    sceneptsscaled = scenepts.replace(p=scenepts.p * scalefactor)
+    segidxs = segment_pc_from_masks(sceneptsscaled, masks, camscaled, min_ratio=1/3)
     if use_icp:
         if scenepts is None:
             raise ValueError()
-        sceneptsscaled = scenepts.replace(p=scenepts.p * scalefactor)
-        segidxs = segment_pc_from_masks(sceneptsscaled, masks, camscaled, min_ratio=1/3)
         meshsamp, _ = trimesh.sample.sample_surface(objectmesh, count=len(segidxs))
         objinscenepts = sceneptsscaled[segidxs]
         tmpT = []
@@ -196,6 +197,30 @@ def fit_foundpose_multiview(
 
     meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmeanransac), t=np.mean(obj2worldsinliersym.t, axis=0))
 
+    # burial ratio by fitting plane to floor point cloud
+    floormask = np.ones(len(sceneptsscaled), dtype=bool)
+    floormask[segidxs] = False
+    plane1 = pyrsc.Plane()
+    best_eq, best_inliers = plane1.fit(sceneptsscaled[floormask].p, thresh=0.005)
+    a, b, c, d = best_eq
+    normal = np.array([a, b, c])
+    R = get_axes_rot([0, 0, 1], normal)
+    planecent = [0, 0, -d / c]
+    Tmat = np.eye(4)
+    Tmat[:3, :3] = R
+    Tmat[:3, 3] = planecent
+    planeT = v3d.Transform.from_matrix(Tmat)
+    camzup = camscaled.apply_transform(planeT.inv)
+    if np.mean(camzup.world_from_cam.t[:, 2]) < 0:
+        planeT = planeT @ v3d.Transform.from_matrix(np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]))
+        camzup = camscaled.apply_transform(planeT.inv)
+        normal = -normal
+    T_zup = planeT.inv @ meanT
+    meshzup = objectmesh.copy().apply_transform(T_zup.matrix4x4)
+    meshzup = trimesh.intersections.slice_mesh_plane(meshzup, [0, 0, 1], [0, 0, 0], cap=True)
+    burial_ratio = 1 - meshzup.volume / objectmesh.volume
+
+    plane2cam = camscaled.world_from_cam.inv @ planeT[..., None]
     obj2camfit = camscaled.world_from_cam.inv @ meanT[..., None]
     estposes = []
     for name, obj2cam in zip(names, obj2camfit):
@@ -205,12 +230,14 @@ def fit_foundpose_multiview(
             "hypothesis_id": "0",
             "R": obj2cam.R.tolist(),
             "t": obj2cam.t.tolist(),
+            "R_floor": plane2cam.R.tolist(),
+            "t_floor": plane2cam.t.tolist(),
         }
         estposes.append(posedata)
-    return estposes, meanT, scalefactor
+    return estposes, meanT, scalefactor, planeT, burial_ratio
 
 
-def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False):
+def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None):
     datadir = Path(datadir)
     resdir = Path(resdir)
     objdir = Path(objdir)
@@ -249,7 +276,7 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
     with open(foundpose_res_path, "rt") as f:
         foundpose_res = yaml.safe_load(f)
     
-    results, meanT, scalefactor = fit_foundpose_multiview(
+    results, meanT, scalefactor, planeT, burial_ratio = fit_foundpose_multiview(
         foundpose_res,
         filtnames,
         filtcams,
@@ -259,6 +286,7 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
         objectsymmetries=symTs,
         use_coarse=use_coarse,
         use_icp=use_icp,
+        seed=seed,
     )
     camscaled = scale_cams(scalefactor, filtcams)
 
@@ -268,13 +296,23 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
     estimate_dir.mkdir(exist_ok=True, parents=True)
     overlaydir = estimate_dir / f"fit-overlays"
     overlaydir.mkdir(exist_ok=True)
+    plane = trimesh.creation.box(extents=(10, 10, 0.01))
     for i, img in enumerate(tqdm(filtimgs, desc="Rendering fit overlay results")):
         imgname = filtnames[i]
-        rgb, _, _ = render_model(camscaled[i], mesh, meanT, light_intensity=40.0)
+        rgb, _, _ = render_models(camscaled[i], mesh, meanT, light_intensity=40.0)
         overlayimg = to_contour(rgb, color=(255, 0, 0), background=img)
-        Image.fromarray(overlayimg).save(overlaydir / f"{imgname}.png")
+        Image.fromarray(overlayimg).save(overlaydir / f"{imgname}.jpg")
         # Image.fromarray(render_v3d(camscaled[i], meanT @ meshpts, radius=4, background=img)).save(overlaydir / f"{imgpaths[i].stem}.png")
+        rgb_primitives, _, _ = render_models(camscaled[i], [mesh, plane], [meanT, planeT], light_intensity=200.0)
+        Image.fromarray(rgb_primitives).save(overlaydir / f"{imgname}_primitives.jpg")
     with open(estimate_dir / f"estimated-poses.json", "wt") as f:
-        json.dump(results, f)
+        json.dump(results, f, indent=4)
+    otherresults = {
+        "scalefactor": scalefactor,
+        "burial_ratio": burial_ratio,
+        "obj2world": meanT.matrix4x4.tolist(),
+        "use_coarse": use_coarse,
+        "use_icp": use_icp
+    }
     with open(estimate_dir / f"reconstruction-info.json", "wt") as f:
-        json.dump({"scalefactor": scalefactor, "obj2world": meanT.matrix4x4.tolist()}, f)
+        json.dump(otherresults, f, indent=4)

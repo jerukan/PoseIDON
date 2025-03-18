@@ -36,7 +36,31 @@ from burybarrel.scripts.run_foundpose_fit import _run_foundpose_fit
     "device",
     type=click.STRING,
 )
-def run_full_pipeline(datadir, resdir, objdir, device=None):
+@click.option(
+    "--step-mask",
+    "step_mask",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Run SAM mask creation step"
+)
+@click.option(
+    "--step-foundpose",
+    "step_foundpose",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Run foundpose template, repre, and inference step"
+)
+@click.option(
+    "--step-fit",
+    "step_fit",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Run multiview fitting step"
+)
+def run_full_pipeline(datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):
     datadir = Path(datadir)
     resdir = Path(resdir)
     objdir = Path(objdir)
@@ -47,7 +71,12 @@ def run_full_pipeline(datadir, resdir, objdir, device=None):
     text_prompt = model_info[data_info["object_name"]]["descriptor"]
     imgdir = datadir / "rgb"
     maskdir = resdir / "sam-masks"
-    _create_masks(imgdir, text_prompt, maskdir, closekernelsize=5, convexhull=True, device=device)
-    _run_foundpose(datadir, resdir, objdir, Path("/home/jeyan/Projects/barrel-playground/otherrepos/foundpose"), pythonbinpath=Path("/scratch/jeyan/conda/envs/foundpose_gpu_311/bin/python"))
-    _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=True, seed=0)
-    _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=False, seed=0)
+    if step_mask:
+        _create_masks(imgdir, text_prompt, maskdir, closekernelsize=5, convexhull=True, device=device)
+    if step_foundpose:
+        _run_foundpose(datadir, resdir, objdir, Path("/home/jeyan/Projects/barrel-playground/otherrepos/foundpose"), pythonbinpath=Path("/scratch/jeyan/conda/envs/foundpose_gpu_311/bin/python"))
+    if step_fit:
+        _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=True, seed=0)
+        _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=False, seed=0)
+        _run_foundpose_fit(datadir, resdir, objdir, use_coarse=False, use_icp=True, seed=0)
+        _run_foundpose_fit(datadir, resdir, objdir, use_coarse=False, use_icp=False, seed=0)
