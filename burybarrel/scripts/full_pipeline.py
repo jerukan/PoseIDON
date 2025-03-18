@@ -74,7 +74,7 @@ def run_full_pipeline(datadir, resdir, objdir, device=None, step_mask=False, ste
     if step_mask:
         _create_masks(imgdir, text_prompt, maskdir, closekernelsize=5, convexhull=True, device=device)
     if step_foundpose:
-        _run_foundpose(datadir, resdir, objdir, Path("/home/jeyan/Projects/barrel-playground/otherrepos/foundpose"), pythonbinpath=Path("/scratch/jeyan/conda/envs/foundpose_gpu_311/bin/python"))
+        _run_foundpose(datadir, resdir, objdir, Path("/home/jeyan/Projects/barrel-playground/otherrepos/foundpose"), pythonbinpath=Path("/scratch/jeyan/conda/envs/foundpose_gpu_311/bin/python"), device=device)
     if step_fit:
         _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=True, seed=0)
         _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=False, seed=0)
