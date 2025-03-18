@@ -9,6 +9,7 @@ import jax.numpy as jnp
 from jax import grad
 import numpy as np
 from numpy.typing import NDArray
+import open3d as o3d
 from PIL import Image
 import pyransac3d as pyrsc
 import quaternion
@@ -24,10 +25,10 @@ import burybarrel.colmap_util as cutil
 from burybarrel.image import render_v3d, render_models, to_contour, imgs_from_dir
 from burybarrel.plotting import get_axes_traces
 from burybarrel.camera import load_v3dcams
-from burybarrel.transform import icp, scale_T_translation, qangle, qmean, closest_quat_sym, get_axes_rot
+from burybarrel.transform import icp, scale_T_translation, qangle, qmean, closest_quat_sym, get_axes_rot, T_from_translation
 from burybarrel.mesh import segment_pc_from_masks
 from burybarrel.estimators import ransac
-from burybarrel.utils import match_lists
+from burybarrel.utils import match_lists, invert_idxs
 
 
 def scale_cams(scale: float, cams: v3d.Camera):
@@ -123,6 +124,7 @@ def fit_foundpose_multiview(
     use_coarse: bool = False,
     use_icp: bool = False,
     seed = None,
+    resdir = None,
 ) -> Tuple[List[Dict], v3d.Transform, float, float]:
     cams = cameras
     # names, cameras are already assumed to be ordered and filtered
@@ -171,33 +173,9 @@ def fit_foundpose_multiview(
     obj2worldsinlier: v3d.Transform = obj2worlds[inlieridxs]
 
     sceneptsscaled = scenepts.replace(p=scenepts.p * scalefactor)
-    segidxs = segment_pc_from_masks(sceneptsscaled, masks, camscaled, min_ratio=1/3)
-    if use_icp:
-        if scenepts is None:
-            raise ValueError()
-        meshsamp, _ = trimesh.sample.sample_surface(objectmesh, count=len(segidxs))
-        objinscenepts = sceneptsscaled[segidxs]
-        tmpT = []
-        for i, obj2world in enumerate(tqdm(obj2worldsinlier, desc="Running ICP on inlier poses")):
-            samp_trf = obj2world @ meshsamp
-            icpT = v3d.Transform.from_matrix(icp(objinscenepts.p, samp_trf))
-            tmpT.append(icpT.inv @ obj2world)
-        obj2worldsinlier = dca.stack(tmpT)
+    segidxs = segment_pc_from_masks(sceneptsscaled, masks, camscaled, min_ratio=1/2)
 
-    quatsinlier = quaternion.from_rotation_matrix(obj2worldsinlier.R)
-    ref = quatsinlier[0]
-    quatssymd = [ref]
-    for otherquat in quatsinlier[1:]:
-        best = closest_quat_sym(ref, otherquat, objectsymmetries)
-        quatssymd.append(best)
-    quatssymd = np.array(quatssymd)
-    obj2worldsinliersym = obj2worldsinlier.replace(R=quaternion.as_rotation_matrix(quatssymd))
-
-    qmeanransac, qinliers = ransac(quatssymd, fit_func=qmean, loss_func=qloss, cost_func=qcost, samp_min=5, inlier_min=5, inlier_thres=0.2, max_iter=50, seed=seed)
-
-    meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmeanransac), t=np.mean(obj2worldsinliersym.t, axis=0))
-
-    # burial ratio by fitting plane to floor point cloud
+    # plane fit to seafloor
     floormask = np.ones(len(sceneptsscaled), dtype=bool)
     floormask[segidxs] = False
     plane1 = pyrsc.Plane()
@@ -215,10 +193,63 @@ def fit_foundpose_multiview(
         planeT = planeT @ v3d.Transform.from_matrix(np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]))
         camzup = camscaled.apply_transform(planeT.inv)
         normal = -normal
+
+    if use_icp:
+        icpdebugdir = resdir / "icp-debug"
+        icpdebugdir.mkdir(exist_ok=True, parents=True)
+        # 3x points from sfm point cloud
+        meshsamp, _ = trimesh.sample.sample_surface(objectmesh, count=len(segidxs))
+        objinscenepts = sceneptsscaled[segidxs]
+        # simple outlier removal to see if this works
+        o3dobj = o3d.geometry.PointCloud()
+        o3dobj.points = o3d.utility.Vector3dVector(objinscenepts.p)
+        _, inlieridx = o3dobj.remove_statistical_outlier(nb_neighbors=50, std_ratio=2.0)
+        tmpT = []
+        for i, obj2world in enumerate(tqdm(obj2worldsinlier, desc="Running ICP on inlier poses")):
+            samp_trf = obj2world @ meshsamp
+            # source is sfm point cloud, since it is incomplete
+            icpT = v3d.Transform.from_matrix(icp(objinscenepts.p[inlieridx], samp_trf, outlier_std=2.0))
+            tmpT.append(icpT.inv @ obj2world)
+            # debug figure (this takes a while to generate)
+            meshpts = planeT.inv @ v3d.Point3d(p=samp_trf, rgb=[0, 0, 255])
+            meshicppts = planeT.inv @ v3d.Point3d(p=icpT.inv @ samp_trf, rgb=[0, 255, 0])
+            sceneobjzuppts = planeT.inv @ objinscenepts[inlieridx]
+            sceneobjzupoutlierpts = planeT.inv @ objinscenepts[invert_idxs(inlieridx, len(objinscenepts))]
+            sceneobjzupoutlierpts = sceneobjzupoutlierpts.replace(rgb=[255, 0, 0])
+            xycent = np.mean(sceneobjzuppts.p, axis=0)[:2]
+            centT = T_from_translation(-xycent[0], -xycent[1], 0)
+            icpfig = v3d.make_fig(
+                [centT @ meshpts, centT @ meshicppts, centT @ sceneobjzuppts, centT @ sceneobjzupoutlierpts],
+            num_samples_point3d=1000)
+            icpfig.write_image(icpdebugdir / f"icpout_{str(i).zfill(4)}.png")
+        obj2worldsinlier = dca.stack(tmpT)
+
+    quatsinlier = quaternion.from_rotation_matrix(obj2worldsinlier.R)
+    ref = quatsinlier[0]
+    quatssymd = [ref]
+    for otherquat in quatsinlier[1:]:
+        best = closest_quat_sym(ref, otherquat, objectsymmetries)
+        quatssymd.append(best)
+    quatssymd = np.array(quatssymd)
+    obj2worldsinliersym = obj2worldsinlier.replace(R=quaternion.as_rotation_matrix(quatssymd))
+
+    qmeanransac, qinliers = ransac(quatssymd, fit_func=qmean, loss_func=qloss, cost_func=qcost, samp_min=5, inlier_min=5, inlier_thres=0.2, max_iter=50, seed=seed)
+
+    meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmeanransac), t=np.mean(obj2worldsinliersym.t, axis=0))
+    quatfig = v3d.make_fig(*get_axes_traces(obj2worldsinliersym, scale=0.5), *get_axes_traces(meanT, linewidth=10))
+    quatfig.write_image(resdir / "quaternion_fit.png")
+
+    # burial ratio by fitting plane to floor point cloud
     T_zup = planeT.inv @ meanT
     meshzup = objectmesh.copy().apply_transform(T_zup.matrix4x4)
     meshzup = trimesh.intersections.slice_mesh_plane(meshzup, [0, 0, 1], [0, 0, 0], cap=True)
     burial_ratio = 1 - meshzup.volume / objectmesh.volume
+
+    # visualization of fitted scene
+    meshzuppts = v3d.Point3d(p=meshzup.vertices)
+    scenezuppts = planeT.inv @ sceneptsscaled
+    aggfig = v3d.make_fig([scenezuppts, meshzuppts, camzup])
+    aggfig.write_image(resdir / "scene-aggregate-fit.png")
 
     plane2cam = camscaled.world_from_cam.inv @ planeT[..., None]
     obj2camfit = camscaled.world_from_cam.inv @ meanT[..., None]
@@ -238,6 +269,7 @@ def fit_foundpose_multiview(
 
 
 def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None):
+    # existing dirs
     datadir = Path(datadir)
     resdir = Path(resdir)
     objdir = Path(objdir)
@@ -247,6 +279,11 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
     foundpose_res_path = resdir / "foundpose-output/inference/estimated-poses.json"
     imgdir = datadir / "rgb"
     maskdir = resdir / "sam-masks"
+    # dir setup
+    coarsestr = "coarse" if use_coarse else "refine"
+    icpstr = "icp" if use_icp else "noicp"
+    estimate_dir = resdir / f"fit-output/est-{coarsestr}-{icpstr}"
+    estimate_dir.mkdir(exist_ok=True, parents=True)
 
     with open(objdir / "model_info.json", "rt") as f:
         objinfo = yaml.safe_load(f)
@@ -287,13 +324,10 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
         use_coarse=use_coarse,
         use_icp=use_icp,
         seed=seed,
+        resdir=estimate_dir
     )
     camscaled = scale_cams(scalefactor, filtcams)
 
-    coarsestr = "coarse" if use_coarse else "refine"
-    icpstr = "icp" if use_icp else "noicp"
-    estimate_dir = resdir / f"fit-output/est-{coarsestr}-{icpstr}"
-    estimate_dir.mkdir(exist_ok=True, parents=True)
     overlaydir = estimate_dir / f"fit-overlays"
     overlaydir.mkdir(exist_ok=True)
     plane = trimesh.creation.box(extents=(10, 10, 0.01))

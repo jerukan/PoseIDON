@@ -16,6 +16,13 @@ def scale_T_translation(T: v3d.Transform, scale) -> v3d.Transform:
     return T.replace(t=T.t * scale)
 
 
+def T_from_translation(*translation):
+    translation = np.array(translation).reshape(3)
+    T = np.eye(4)
+    T[:3, 3] = translation
+    return v3d.Transform.from_matrix(T)
+
+
 def qangle(q1: quaternion.quaternion, q2: quaternion.quaternion) -> float:
     """
     Angle in radians between 2 quaternions.
@@ -126,17 +133,19 @@ def rotate_pts_to_ax_torch(pts, normal, target):
     return rotscenexyz
 
 
-def icp(src_pc: np.ndarray, trg_pc: np.ndarray, T_init=None, max_iters=20, tol=1e-3, verbose=False, ret_err=False):
+def icp(src_pc: np.ndarray, trg_pc: np.ndarray, T_init=None, max_iters=20, tol=1e-3, verbose=False, ret_err=False, outlier_std=0.0):
     """
     Standard iterative closest point.
 
-    Assumes src_pc is smaller than trg_pc. Otherwise, this may have questionable performance.
+    Assumes src_pc is a subset of trg_pc. Otherwise, this may have questionable performance.
 
     Args:
         src_pc (nx3 array): source point cloud; transform T will be applied to this; n<=m should
             hold true
         trg_pc (mx3 array): target point cloud
         T_init (4x4 transform): initial guess for transform
+        outlier_std (float): standard deviation nearest neighbor distance for outlier rejection
+            of source point cloud; 0.0 means no rejection
 
     Returns:
         (4x4 transform, Optional[distance mse]): T @ src -> trg
@@ -158,8 +167,16 @@ def icp(src_pc: np.ndarray, trg_pc: np.ndarray, T_init=None, max_iters=20, tol=1
     for i in range(max_iters):
         R = T[:3, :3]
         p = T[:3, 3]
-        _, close_idxs = target_kd.query((R @ src_pc.T).T + p)
+        distances, close_idxs = target_kd.query((R @ src_pc.T).T + p)
+        distances = np.reshape(distances, -1)
         close_idxs = np.reshape(close_idxs, -1)
+        if outlier_std > 0.0:
+            # reject based on distance stddev
+            inliermask = np.abs(distances - np.mean(distances)) < outlier_std * np.std(distances)
+            close_idxs = close_idxs[inliermask]
+            # recompute source mean and centered source pc
+            src_mean = np.mean(src_pc[inliermask], axis=0)
+            src_cent = src_pc[inliermask] - src_mean
         # src_mean_filt = np.mean(src_pc[close_idxs], axis=0)
         trg_mean_filt = np.mean(trg_pc[close_idxs], axis=0)
         z = src_cent

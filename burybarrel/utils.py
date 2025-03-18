@@ -10,6 +10,16 @@ import pandas as pd
 import yaml
 
 
+def invert_idxs(idxs, n):
+    """
+    Invert numerical index.
+    """
+    allidxs = np.arange(n)
+    mask = np.ones(n, dtype=bool)
+    mask[idxs] = False
+    return allidxs[mask]
+
+
 def add_to_json(data: Dict, path: Union[Path, str]):
     """
     Adds data or modifies existing keys to a JSON file.
