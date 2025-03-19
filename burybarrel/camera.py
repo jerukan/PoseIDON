@@ -111,7 +111,7 @@ def save_v3dcams(cams: v3d.Camera, imgpaths: List[Union[str, Path]], outpath: Un
     outpath = Path(outpath)
     with open(outpath, "wt") as f:
         if format == "json":
-            json.dump(camposedata, f)
+            json.dump(camposedata, f, indent=4)
         elif format == "yaml":
             yaml.dump(camposedata, f)
     return camposedata

@@ -196,7 +196,7 @@ def reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=Fal
             "height": h,
         }
         with open(camintrinsics_path, "wt") as f:
-            json.dump(camintrinsics, f)
+            json.dump(camintrinsics, f, indent=4)
         pts, cols = cutil.get_pc(reconstruction)
         trimeshpc = trimesh.points.PointCloud(pts, colors=cols)
         trimeshpc.export(sparseply_path)

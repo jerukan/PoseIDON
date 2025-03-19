@@ -13,7 +13,24 @@ from burybarrel.image import apply_clahe
 
 
 @click.command()
-@click.option("-i", "--input", "input_path", required=True, type=click.Path(exists=True, dir_okay=False), help="input video path")
+@click.option("-c", "--config", "cfg_path", required=False, type=click.Path(exists=True, dir_okay=False), help="video informaton yaml file")
+@click.option("-n", "--name", "name", required=False, type=click.STRING, help="name of data in the yaml config")
+def get_footage_keyframes(cfg_path, name):
+    with open(cfg_path, "rt") as f:
+        cfg_all = yaml.safe_load(f)
+    defaults = cfg_all["default"]
+    cfg = cfg_all[name]
+    
+    # what am i doing with my life
+    cfg_in = {
+        **defaults,
+        **cfg,
+    }
+    _get_footage_keyframes(**cfg_in)
+
+
+@click.command()
+@click.option("-i", "--input", "input_path", required=False, type=click.Path(exists=True, dir_okay=False), help="input video path")
 @click.option("-o", "--output", "output_dir", required=False, type=click.Path(file_okay=False), help="output dir (default: parent directory of video)")
 @click.option("-t", "--time", "start_time", required=False, type=click.STRING, help="start time of the video (ISO 8601 format) (YYYY-MM-DDTHH:MM:SS)")
 @click.option("--tz", "timezone", required=False, type=click.STRING, help="timezone from Olson tz database")
@@ -41,22 +58,30 @@ from burybarrel.image import apply_clahe
     type=click.BOOL,
     help="Only used when navpath is provided; naively denoises depth data"
 )
-def get_footage_keyframes(
-    input_path,
-    step,
+def get_footage_keyframes_cmd_old(
+    **kwargs
+):
+    _get_footage_keyframes(**kwargs)
+
+
+def _get_footage_keyframes(
+    input_path=None,
     output_dir=None,
     start_time=None,
     timezone=None,
+    step=None,
     navpath=None,
-    crop=True,
-    fps=25,
-    increase_contrast=True,
-    denoise_depth=True,
+    crop=None,
+    fps=None,
+    increase_contrast=None,
+    denoise_depth=None,
+    object_name=None,
 ):
     """
     Retrieves keyframes from a video at specified intervals.
 
     Args:
+        output_dir: default is parent directory of video
         fps: videos are at 25 fps
     """
     vidpath = Path(input_path)
@@ -95,7 +120,7 @@ def get_footage_keyframes(
         cnt += 1
 
     infodict = {
-        "object_name": "placeholder.ply"
+        "object_name": "placeholder.ply" if object_name is None else object_name
     }
 
     if navpath is not None:
@@ -126,6 +151,7 @@ def get_footage_keyframes(
         # radians
         rolls = []
         for _ in fnames:
+            # nearest prior time interpolation, too lazy to do linear
             navrow = valid_nav[valid_nav["timestamp"] <= curr_t].iloc[-1]
             times.append(curr_t)
             nav_times.append(navrow["timestamp"])
