@@ -1,7 +1,5 @@
 import json
-import os
 from pathlib import Path
-import sys
 from typing import List, Dict, Tuple
 
 import dataclass_array as dca
@@ -18,7 +16,6 @@ import trimesh
 import visu3d as v3d
 import yaml
 
-sys.path.append(os.path.abspath(os.path.join("bop_toolkit")))
 from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations
 
 import burybarrel.colmap_util as cutil

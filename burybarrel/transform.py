@@ -153,9 +153,9 @@ def icp(src_pc: np.ndarray, trg_pc: np.ndarray, T_init=None, max_iters=20, tol=1
     src_mean = np.mean(src_pc, axis=0)
     trg_mean = np.mean(trg_pc, axis=0)
     src_cent = src_pc - src_mean
-    trg_cent = trg_pc - trg_mean
+    # trg_cent = trg_pc - trg_mean
 
-    src_kd = KDTree(src_pc)
+    # src_kd = KDTree(src_pc)
     target_kd = KDTree(trg_pc)
 
     if T_init is not None:
@@ -195,10 +195,10 @@ def icp(src_pc: np.ndarray, trg_pc: np.ndarray, T_init=None, max_iters=20, tol=1
         if i == max_iters - 1:
             if verbose:
                 print(f"max iters {max_iters} reached before tolerance {tol}")
-    # mean square error
-    dists, _ = target_kd.query((R @ src_cent.T).T + p)
-    err = np.mean(dists ** 2)
     if ret_err:
+        # mean square error
+        dists, _ = target_kd.query((R @ src_cent.T).T + p)
+        err = np.mean(dists ** 2)
         return T, err
     return T
 
