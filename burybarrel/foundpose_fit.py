@@ -52,6 +52,23 @@ def variance_from_scale(scale, data):
     return jnp.sum(jnp.var(centers, axis=0))
 
 
+def best_scale_var(data):
+    """
+    Closed form equation for minimizing variance from scale.
+    """
+    camTs = np.array(data[0])
+    objTs = np.array(data[1])
+    # translation center of objects
+    objtsworld = camTs @ objTs @ np.array([0, 0, 0, 1.0])
+    objtsworld = objtsworld[:, :3]
+    camtsworld = camTs[:, 0:3, 3]
+    objtsworldmean = np.mean(objtsworld, axis=0)
+    camtsworldmean = np.mean(camtsworld, axis=0)
+    objtsdiff = objtsworld - objtsworldmean[None, ...]
+    camtsdiff = camtsworld - camtsworldmean[None, ...]
+    return -np.sum(objtsdiff * camtsdiff) / np.sum(camtsdiff * camtsdiff) + 1
+
+
 class ScaleCentroidModel():
     def __init__(self):
         self.scale = None
@@ -61,16 +78,18 @@ class ScaleCentroidModel():
         return self.predict(data)
     
     def fit(self, data):
-        varfunc_data = lambda x: variance_from_scale(x, data)
-        grad_cost = grad(varfunc_data)
-        scaleinit = 1.0
-        currscale = scaleinit
-        currgrad = grad_cost(scaleinit)
-        rate = 0.01
-        eps = 1e-3
-        while jnp.abs(currgrad) > eps:
-            currgrad = grad_cost(currscale)
-            currscale -= rate * currgrad
+        # varfunc_data = lambda x: variance_from_scale(x, data)
+        # grad_cost = grad(varfunc_data)
+        # scaleinit = 1.0
+        # currscale = scaleinit
+        # currgrad = grad_cost(scaleinit)
+        # rate = 0.01
+        # eps = 1e-3
+        # while jnp.abs(currgrad) > eps:
+        #     currgrad = grad_cost(currscale)
+        #     currscale -= rate * currgrad
+        currscale = best_scale_var(data)
+        # print(f"Scale: {currscale}")
         self.scale = float(currscale)
         centroids = self.predict(data)
         self.mean = np.mean(centroids, axis=0)
@@ -81,7 +100,7 @@ class ScaleCentroidModel():
         obj2cams = data[1]
         scaledcamTs = np.copy(cam2worlds)
         scaledcamTs[:, 0:3, 3] *= self.scale
-        centershom = scaledcamTs @ obj2cams @ jnp.array([0, 0, 0, 1.0])
+        centershom = scaledcamTs @ obj2cams @ np.array([0, 0, 0, 1.0])
         centers = centershom[:, :3]
         return centers
 
@@ -242,8 +261,14 @@ def fit_foundpose_multiview(
     # burial ratio by fitting plane to floor point cloud
     T_zup = planeT.inv @ meanT
     meshzup = objectmesh.copy().apply_transform(T_zup.matrix4x4)
-    meshzup = trimesh.intersections.slice_mesh_plane(meshzup, [0, 0, 1], [0, 0, 0], cap=True)
-    burial_ratio = 1 - meshzup.volume / objectmesh.volume
+    mesh_zvals = meshzup.vertices[:, 2]
+    zmin, zmax = np.min(mesh_zvals), np.max(mesh_zvals)
+    if zmin >= 0:
+        burial_ratio_z = 0
+    else:
+        burial_ratio_z = abs(zmin) / (abs(zmin) + zmax)
+    slicedmesh = trimesh.intersections.slice_mesh_plane(meshzup, [0, 0, 1], [0, 0, 0], cap=True)
+    burial_ratio_vol = 1 - slicedmesh.volume / objectmesh.volume
 
     # visualization of fitted scene
     meshzuppts = v3d.Point3d(p=meshzup.vertices)
@@ -265,7 +290,7 @@ def fit_foundpose_multiview(
             "t_floor": plane2cam.t.tolist(),
         }
         estposes.append(posedata)
-    return estposes, meanT, scalefactor, planeT, burial_ratio
+    return estposes, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z
 
 
 def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None):
@@ -313,7 +338,7 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
     with open(foundpose_res_path, "rt") as f:
         foundpose_res = yaml.safe_load(f)
     
-    results, meanT, scalefactor, planeT, burial_ratio = fit_foundpose_multiview(
+    results, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z = fit_foundpose_multiview(
         foundpose_res,
         filtnames,
         filtcams,
@@ -343,7 +368,8 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
         json.dump(results, f, indent=4)
     otherresults = {
         "scalefactor": scalefactor,
-        "burial_ratio": burial_ratio,
+        "burial_ratio_vol": burial_ratio_vol,
+        "burial_ratio_z": burial_ratio_z,
         "obj2world": meanT.matrix4x4.tolist(),
         "use_coarse": use_coarse,
         "use_icp": use_icp
