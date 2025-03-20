@@ -119,7 +119,7 @@ def camloss(model, data):
 
 def camcost(model, data):
     cents = model(data)
-    return jnp.sum(jnp.var(cents, axis=0))
+    return np.sum(np.var(cents, axis=0))
 
 
 # data = (n quaternions)
