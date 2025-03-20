@@ -293,7 +293,7 @@ def fit_foundpose_multiview(
     return estposes, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z
 
 
-def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None):
+def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None, device=None):
     # existing dirs
     datadir = Path(datadir)
     resdir = Path(resdir)
@@ -358,11 +358,11 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
     plane = trimesh.creation.box(extents=(10, 10, 0.01))
     for i, img in enumerate(tqdm(filtimgs, desc="Rendering fit overlay results")):
         imgname = filtnames[i]
-        rgb, _, _ = render_models(camscaled[i], mesh, meanT, light_intensity=40.0)
+        rgb, _, _ = render_models(camscaled[i], mesh, meanT, light_intensity=40.0, device=device)
         overlayimg = to_contour(rgb, color=(255, 0, 0), background=img)
         Image.fromarray(overlayimg).save(overlaydir / f"{imgname}.jpg")
         # Image.fromarray(render_v3d(camscaled[i], meanT @ meshpts, radius=4, background=img)).save(overlaydir / f"{imgpaths[i].stem}.png")
-        rgb_primitives, _, _ = render_models(camscaled[i], [mesh, plane], [meanT, planeT], light_intensity=200.0)
+        rgb_primitives, _, _ = render_models(camscaled[i], [mesh, plane], [meanT, planeT], light_intensity=200.0, device=device)
         Image.fromarray(rgb_primitives).save(overlaydir / f"{imgname}_primitives.jpg")
     with open(estimate_dir / f"estimated-poses.json", "wt") as f:
         json.dump(results, f, indent=4)

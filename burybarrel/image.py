@@ -169,7 +169,7 @@ def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1, background=None) 
     return img
 
 
-def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.Trimesh]], transforms: v3d.Transform, light_intensity=2.4, flags=pyrender.RenderFlags.NONE) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.Trimesh]], transforms: v3d.Transform, light_intensity=2.4, flags=pyrender.RenderFlags.NONE, device=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Renders meshes in given poses for a given camera view.
 
@@ -178,6 +178,10 @@ def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.T
     """
     if torch.cuda.is_available():
         os.environ["PYOPENGL_PLATFORM"] = "egl"
+        if device is not None:
+            if ":" in device:
+                devicenum = device.split(":")[1]
+                os.environ["EGL_DEVICE_ID"] = devicenum
     renderer = pyrender.OffscreenRenderer(cam.w, cam.h)
     pyrendercam = pyrender.IntrinsicsCamera(
         fx=cam.spec.K[0, 0],

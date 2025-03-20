@@ -50,9 +50,15 @@ from burybarrel.foundpose_fit import load_fit_write
     type=click.INT,
     help="rng seed yeah",
 )
-def run_foundpose_fit(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None):
-    _run_foundpose_fit(datadir, resdir, objdir, use_coarse=use_coarse, use_icp=use_icp, seed=seed)
+@click.option(
+    "-d",
+    "--device",
+    "device",
+    type=click.STRING,
+)
+def run_foundpose_fit(**kwargs):
+    load_fit_write(**kwargs)
 
 
-def _run_foundpose_fit(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None):
-    load_fit_write(datadir, resdir, objdir, use_coarse=use_coarse, use_icp=use_icp, seed=seed)
+def _run_foundpose_fit(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None, device=None):
+    load_fit_write(datadir, resdir, objdir, use_coarse=use_coarse, use_icp=use_icp, seed=seed, device=device)
