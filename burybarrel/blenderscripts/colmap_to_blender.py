@@ -16,8 +16,8 @@ import mathutils
 print("CURRENT WORKING DIRECTORY")
 print(os.getcwd())
 
+name = "dive8-barrel-11-04"
 # reconstruction paths
-name = "dive8-barrel-10-45"
 datainfo_path = Path(f"/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/data/input_data/{name}/info.json")
 reconstruct_mesh_path = Path(f"/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/{name}/openmvs-out/scene_dense_mesh_refine_texture.obj")
 camposes_path = Path(f"/Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/{name}/colmap-out/cam_poses.json")
