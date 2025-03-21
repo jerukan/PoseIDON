@@ -49,6 +49,22 @@ dive8-barrel-10-45:
   R_floor: [247.071, 48.9464, 174.596]
   model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
   camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive8-barrel-10-45/colmap-out/cam_poses.json
+dive8-barrel-10-49:
+  scalefactor: 0.944933
+  t: [-2.37612, 1.45537, 2.61495]
+  R: [39.6537, 2.05365, 3.47124]
+  t_floor: [-2.32234, 1.58608, 2.52615]
+  R_floor: [119.196, 0, 0]
+  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
+  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive8-barrel-10-49/colmap-out/cam_poses.json
+dive8-barrel-11-04:
+  scalefactor: 3.95403
+  t: [-0.663368, 0.089699, 11.5603]
+  R: [41.2063, 29.968, 23.9451]
+  t_floor: [-0.709312, 1.29809, 10.8988]
+  R_floor: [123.207, 25.7305, 19.2879]
+  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
+  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive8-barrel-11-04/colmap-out/cam_poses.json
 dive3-depthcharge-03-04:
   scalefactor: 3.40655
   t: [-0.078446, 2.68722, 15.8649]
