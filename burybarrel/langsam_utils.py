@@ -9,8 +9,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-from lang_sam import LangSAM
-
 # Suppress warning messages
 # warnings.filterwarnings("ignore")
 
@@ -30,7 +28,8 @@ def display_image_with_masks(
     image,
     masks,
     boxes,
-    logits,
+    scores,
+    mask_scores,
     figwidth=15,
     savefig=None,
     all_masks=True,
@@ -40,7 +39,8 @@ def display_image_with_masks(
     if not all_masks:
         masks = masks[:1]
         boxes = boxes[:1]
-        logits = logits[:1]
+        scores = scores[:1]
+        mask_scores = mask_scores[:1]
     num_masks = len(masks)
 
     fig, axes = plt.subplots(1, num_masks + 1, figsize=(figwidth, 5))
@@ -48,10 +48,10 @@ def display_image_with_masks(
     axes[0].set_title("Image with Bounding Boxes")
     axes[0].axis("off")
 
-    for box, logit in zip(boxes, logits):
+    for box, score in zip(boxes, scores):
         x_min, y_min, x_max, y_max = box
         confidence_score = round(
-            logit.item(), 2
+            score.item(), 2
         )  # Convert logit to a scalar before rounding
         box_width = x_max - x_min
         box_height = y_max - y_min
@@ -80,7 +80,7 @@ def display_image_with_masks(
 
     for i, mask_np in enumerate(masks):
         axes[i + 1].imshow(mask_np, cmap="gray")
-        axes[i + 1].set_title(f"Mask {i+1}")
+        axes[i + 1].set_title(f"Mask {i+1} (bbox score: {round(scores[i].item(), 2)}),\n(mask score: {round(mask_scores[i].item(), 2)})")
         axes[i + 1].axis("off")
 
     plt.tight_layout()

@@ -2,23 +2,32 @@
 Everything images.
 """
 import json
+import os
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import cv2
 import dataclass_array as dca
 import numpy as np
 from PIL import Image
+import pyrender
 import quaternion
+import torch
+import trimesh
 import visu3d as v3d
 import yaml
 
 from burybarrel.utils import ext_pattern
 
 
-def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False):
+def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False, grayscale=False) -> Tuple[List[Path], Union[np.ndarray, List[Image.Image]]]:
     """
-    So I don't have to rewrite this in every notebook.
+    Loads 3-channel RGB or 1-channel grayscale images.
+
+    Made so I don't have to rewrite this in every notebook.
+
+    Args:
+        asarray (bool): if true, load image array as RGB arrays. Otherwise, load as PIL Images.
 
     Returns:
         (imgpaths, imgs): list of img paths and list of loaded images
@@ -34,21 +43,17 @@ def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False):
     if sortnames:
         imgpaths = sorted(imgpaths)
     if asarray:
-        imgs = np.array([cv2.cvtColor(cv2.imread(str(imgpath)), cv2.COLOR_BGR2RGB) for imgpath in imgpaths])
+        if grayscale:
+            imgs = np.array([cv2.imread(str(imgpath), cv2.IMREAD_GRAYSCALE) for imgpath in imgpaths])
+        else:
+            imgs = np.array([cv2.cvtColor(cv2.imread(str(imgpath)), cv2.COLOR_BGR2RGB) for imgpath in imgpaths])
     else:
         imgs = [Image.open(imgpath) for imgpath in imgpaths]
+        if grayscale:
+            imgs = [img.convert("L") for img in imgs]
+        else:
+            imgs = [img.convert("RGB") for img in imgs]
     return imgpaths, imgs
-
-
-def segment_pc_from_mask(pc: v3d.Point3d, mask, v3dcam: v3d.Camera):
-    idxs = np.arange(pc.shape[0])
-    H, W = v3dcam.spec.resolution
-    pxpts = v3dcam.px_from_world @ pc
-    uvs = pxpts.p
-    valid = (uvs[:, 0] >= 0) & (uvs[:, 0] <= W) & (uvs[:, 1] >= 0) & (uvs[:, 1] <= H)
-    barrelmask = mask[uvs[valid].astype(int).T[1], uvs[valid].astype(int).T[0]] > 0
-    barrelidxs = idxs[valid][barrelmask]
-    return barrelidxs
 
 
 def get_bbox_mask(bbox, W, H):
@@ -162,3 +167,90 @@ def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1, background=None) 
     for i, coord in enumerate(px_coords):
         img = cv2.circle(img, coord, radius, tuple(int(ch) for ch in rgb[i]), -1)
     return img
+
+
+def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.Trimesh]], transforms: v3d.Transform, light_intensity=2.4, flags=pyrender.RenderFlags.NONE, device=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Renders meshes in given poses for a given camera view.
+
+    Returns:
+        (np.ndarray, np.ndarray, np.ndarray): uint8 color (hxwh3), depth (hxw), mask (hxw)
+    """
+    if torch.cuda.is_available():
+        os.environ["PYOPENGL_PLATFORM"] = "egl"
+        if device is not None:
+            if ":" in device:
+                devicenum = device.split(":")[1]
+                os.environ["EGL_DEVICE_ID"] = devicenum
+    renderer = pyrender.OffscreenRenderer(cam.w, cam.h)
+    pyrendercam = pyrender.IntrinsicsCamera(
+        fx=cam.spec.K[0, 0],
+        fy=cam.spec.K[1, 1],
+        cx=cam.spec.K[0, 2],
+        cy=cam.spec.K[1, 2],
+        znear=0.05,
+        zfar=3000.0  
+    )
+    if isinstance(meshes, trimesh.Geometry):
+        meshes = [meshes]
+    if isinstance(transforms, list):
+        transforms = dca.stack(transforms)
+    transforms = transforms.reshape((-1,))
+    pyrendermeshes = [pyrender.Mesh.from_trimesh(mesh) for mesh in meshes]
+    camrot = v3d.Transform.from_angle(x=np.pi, y=0, z=0)
+    oglcamT: v3d.Transform = cam.world_from_cam @ camrot
+
+    ambient_light = np.array([0.02, 0.02, 0.02, 1.0])
+    scene = pyrender.Scene(bg_color=np.zeros(4), ambient_light=ambient_light)
+    meshnodes = []
+    for pyrendermesh, transform in zip(pyrendermeshes, transforms):
+        meshnode = pyrender.Node(mesh=pyrendermesh, matrix=transform.matrix4x4)
+        scene.add_node(meshnode)
+        meshnodes.append(meshnode)
+    camnode = pyrender.Node(camera=pyrendercam, matrix=oglcamT.matrix4x4)
+    # light = pyrender.SpotLight(
+    #     color=np.ones(3),
+    #     intensity=light_intensity,
+    #     innerConeAngle=np.pi / 16.0,
+    #     outerConeAngle=np.pi / 6.0,
+    # )
+    light = pyrender.PointLight(color=np.ones(3), intensity=light_intensity)
+    lightnode = pyrender.Node(light=light, matrix=oglcamT.matrix4x4)
+    scene.add_node(camnode)
+    scene.add_node(lightnode)
+    color, depth = renderer.render(scene, flags=flags)
+    mask = depth > 0
+    renderer.delete()
+    return color, depth, mask
+
+
+def to_contour(img: np.ndarray, color=(255, 255, 255), dilate_iterations=1, outline_only=False, background=None):
+    """
+    Get contour of an object rendering (only object in frame, black background).
+
+    Args:
+        background (np.ndarray): RGB background image to overlay contour onto
+    """
+    if outline_only:
+        mask = np.zeros_like(img)
+        mask[img > 0] = 255
+        mask = np.max(mask, axis=-1)
+        mask_bool = mask.numpy().astype(np.bool_)
+
+        mask_uint8 = (mask_bool.astype(np.uint8) * 255)[:, :, None]
+        mask_rgb = np.concatenate((mask_uint8, mask_uint8, mask_uint8), axis=-1)
+    else:
+        mask_rgb = img
+
+    canny = cv2.Canny(mask_rgb, threshold1=30, threshold2=100)
+
+    kernel = np.ones((3, 3), np.uint8)
+    canny = cv2.dilate(canny, kernel, iterations=dilate_iterations)
+
+    if background is not None:
+        img_contour = np.copy(background)
+    else:
+        img_contour = np.zeros_like(img)
+    img_contour[canny > 0] = color
+
+    return img_contour
