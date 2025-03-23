@@ -22,18 +22,33 @@ from burybarrel.mesh import load_mesh
 
 @click.command()
 @click.option(
+    "-n",
+    "--name",
+    "dataset_names",
+    required=True,
+    type=click.STRING,
+    help="Names of all datasets to process in data_dir",
+    multiple=True,
+)
+@click.option(
     "-d",
     "--datadir",
     "data_dir",
+    default="data/input_data/",
     required=True,
     type=click.Path(exists=True, file_okay=False),
+    show_default=True,
+    help="Directory containing all datasets",
 )
 @click.option(
     "-o",
     "--outdir",
     "out_dir",
+    default="results/",
     required=True,
     type=click.Path(file_okay=False),
+    show_default=True,
+    help="Output directory for all results",
 )
 @click.option(
     "--sparse",
@@ -59,7 +74,33 @@ from burybarrel.mesh import load_mesh
     type=click.BOOL,
     help="Overwrite existing COLMAP database if it exists (it complains by default)",
 )
-def reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=False):
+@click.option(
+    "--num-retries",
+    "num_retries",
+    default=3,
+    type=click.INT,
+    help="Max number of times to retry COLMAP reconstruction on failure",
+)
+def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrite, num_retries):
+    for dsname in dataset_names:
+        indir = Path(data_dir) / dsname
+        outdir = Path(out_dir) / dsname
+        for i in range(num_retries):
+            try:
+                _reconstruct_colmap(indir, outdir, sparse=sparse, dense=dense, overwrite=overwrite)
+                break
+            except InvalidReconstructionError as e:
+                if i < num_retries - 1:
+                    print(f"Failed to reconstruct dataset {dsname} due to error: {e}. Retrying.")
+                    continue
+                else:
+                    print(f"Could not create proper reconstruction in dataset {dsname}: {e}")
+            except Exception as e:
+                print(f"Failed to reconstruct dataset {dsname} due to error: {e}")
+                print("This is probably some random memory error that happens uncontrollably, retry.")
+
+
+def _reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=False):
     ### colmap code ###
     data_dir = Path(data_dir)
     img_dir = data_dir / "rgb"
@@ -235,6 +276,10 @@ def reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=Fal
         subprocess.run(["TextureMesh", "scene_dense.mvs", "-m", "scene_dense_mesh_refine.ply", "-o", "scene_dense_mesh_refine_texture.mvs", "--export-type", "obj"], cwd=openmvs_out, check=True)
 
 
+class InvalidReconstructionError(Exception):
+    pass
+
+
 def check_maps_valid(maps):
     """
     Check valididty of incremantal mapping results from COLMAP.
@@ -242,7 +287,7 @@ def check_maps_valid(maps):
     Raises errors if 0 reconstructions are found or if no reconstruction has >2 registered images.
     """
     if len(maps) == 0:
-        raise RuntimeError("No valid sparse reconstruction from COLMAP.")
+        raise InvalidReconstructionError("No valid sparse reconstruction from COLMAP.")
     reconstr_numreg = [rec.num_reg_images() for rec in maps.values()]
     if max(reconstr_numreg) <= 2:
-        raise RuntimeError("No reconstruction has >2 registered images.")
+        raise InvalidReconstructionError("No reconstruction has >2 registered images.")

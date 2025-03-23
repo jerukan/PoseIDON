@@ -14,19 +14,20 @@ from burybarrel.image import apply_clahe
 
 @click.command()
 @click.option("-c", "--config", "cfg_path", required=False, type=click.Path(exists=True, dir_okay=False), help="video informaton yaml file")
-@click.option("-n", "--name", "name", required=False, type=click.STRING, help="name of data in the yaml config")
-def get_footage_keyframes(cfg_path, name):
+@click.option("-n", "--name", "names", required=False, type=click.STRING, help="name of data in the yaml config", multiple=True)
+def get_footage_keyframes(cfg_path, names):
     with open(cfg_path, "rt") as f:
         cfg_all = yaml.safe_load(f)
     defaults = cfg_all["default"]
-    cfg = cfg_all[name]
-    
-    # what am i doing with my life
-    cfg_in = {
-        **defaults,
-        **cfg,
-    }
-    _get_footage_keyframes(**cfg_in)
+    for name in names:
+        cfg = cfg_all[name]
+        
+        # what am i doing with my life
+        cfg_in = {
+            **defaults,
+            **cfg,
+        }
+        _get_footage_keyframes(**cfg_in)
 
 
 @click.command()
@@ -76,6 +77,7 @@ def _get_footage_keyframes(
     increase_contrast=None,
     denoise_depth=None,
     object_name=None,
+    description=None,
 ):
     """
     Retrieves keyframes from a video at specified intervals.
@@ -120,7 +122,8 @@ def _get_footage_keyframes(
         cnt += 1
 
     infodict = {
-        "object_name": "placeholder.ply" if object_name is None else object_name
+        "object_name": "placeholder.ply" if object_name is None else object_name,
+        "description": "" if description is None else description,
     }
 
     if navpath is not None:

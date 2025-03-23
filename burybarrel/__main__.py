@@ -12,6 +12,12 @@ def cli():
 
 
 @cli.command()
+@click.option("-i", "stuff", multiple=True)
+def test(stuff):
+    print(stuff)
+
+
+@cli.command()
 def datagen_train_run():
     from burybarrel.scripts import datagen_occ, train_barrelnet
 
