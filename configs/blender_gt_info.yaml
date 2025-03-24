@@ -64,6 +64,27 @@ dive8-barrel-11-04:
   t_floor: [-0.709312, 1.29809, 10.8988]
   R_floor: [123.207, 25.7305, 19.2879]
   object_name: barrelsingle-scaled.ply
+dive8-barrel-11-12:
+  scalefactor: 2.3444
+  t: [-5.84137, 1.15568, 6.6175]
+  R: [-234.526, 67.6841, -281.598]
+  t_floor: [-6.36389, 1.7351, 6.14375]
+  R_floor: [112.876, 0, 0]
+  object_name: barrelsingle-scaled.ply
+dive8-barrel-11-21:
+  scalefactor: 1.27275
+  t: [-3.38594, 0.369116, 3.81562]
+  R: [26.358, 15.9959, 7.03949]
+  t_floor: [-3.47418, 0.445686, 3.63672]
+  R_floor: [119.733, 22.7924, 8.21015]
+  object_name: barrelsingle-scaled.ply
+dive8-barrel-11-33:
+  scalefactor: 1.90538
+  t: [3.96521, 1.45007, 5.8831]
+  R: [46.1764, -19.8769, -17.9862]
+  t_floor: [3.58027, 1.34136, 5.94023]
+  R_floor: [136.051, -26.9939, -15.9371]
+  object_name: barrelsingle-scaled.ply
 dive8-barrel-15-04:
   scalefactor: 1.05997
   t: [0.634685, 2.37005, 1.83845]

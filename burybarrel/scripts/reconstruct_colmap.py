@@ -143,7 +143,7 @@ def _reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=Fa
                 # DSP-SIFT is presumably better
                 "domain_size_pooling": True,
                 "edge_threshold":  5.0,
-                "peak_threshold":  1 / 200,
+                "peak_threshold":  1 / 300,
                 "max_num_orientations": 3,
                 "num_octaves": 8,
                 "octave_resolution": 6,
