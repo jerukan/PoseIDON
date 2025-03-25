@@ -114,9 +114,9 @@ def _create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold
         boxes = results["boxes"]
         masks = results["masks"]
         scores = results["scores"]  # bbox score from dino
-        mask_scores = results["mask_scores"]  # mask score from sam
+        mask_scores = np.array(results["mask_scores"])  # mask score from sam
         if len(mask_scores.shape) == 0:
-            mask_scores = np.array([mask_scores])
+            mask_scores = mask_scores[None, ...]
 
         if len(masks) == 0:
             print(f"No objects of the '{text_prompt}' prompt detected in image {imgpath}")

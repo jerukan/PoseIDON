@@ -10,18 +10,29 @@ from burybarrel.scripts.run_foundpose_fit import _run_foundpose_fit
 
 @click.command()
 @click.option(
+    "-n",
+    "--name",
+    "name",
+    required=True,
+    type=click.STRING,
+)
+@click.option(
     "-i",
     "--indir",
     "datadir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
+    default="/scratch/jeyan/barreldata/divedata/",
+    show_default=True,
 )
 @click.option(
     "-o",
     "--outdir",
     "resdir",
     required=True,
-    type=click.Path(file_okay=False),
+    type=click.Path(exists=True, file_okay=False),
+    default="/scratch/jeyan/barreldata/results/",
+    show_default=True,
 )
 @click.option(
     "-m",
@@ -29,12 +40,15 @@ from burybarrel.scripts.run_foundpose_fit import _run_foundpose_fit
     "objdir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
+    default="/scratch/jeyan/barreldata/models3d/",
+    show_default=True,
 )
 @click.option(
     "-d",
     "--device",
     "device",
     type=click.STRING,
+    help="cuda device"
 )
 @click.option(
     "--step-mask",
@@ -60,9 +74,9 @@ from burybarrel.scripts.run_foundpose_fit import _run_foundpose_fit
     type=click.BOOL,
     help="Run multiview fitting step"
 )
-def run_full_pipeline(datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):
-    datadir = Path(datadir)
-    resdir = Path(resdir)
+def run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):
+    datadir = Path(datadir) / name
+    resdir = Path(resdir) / name
     objdir = Path(objdir)
     with open(objdir / "model_info.json", "rt") as f:
         model_info = yaml.safe_load(f)
