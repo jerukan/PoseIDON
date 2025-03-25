@@ -40,7 +40,10 @@ def get_footage_keyframes(cfg_path, names):
 )
 @click.option("--step", "step", required=True, type=click.INT, help="Number of frames between each image")
 @click.option(
-    "--crop/--no-crop", "crop", is_flag=True, default=True, show_default=True, type=click.BOOL
+    "--crop", "crop", default=False, type=click.STRING, help="4 integers separated by commas: top left x, top left y, width, height"
+)
+@click.option(
+    "--mask", "maskpath", required=False, type=click.Path(exists=True, dir_okay=False), help="path to mask"
 )
 @click.option(
     "--contrast",
@@ -62,6 +65,12 @@ def get_footage_keyframes(cfg_path, names):
 def get_footage_keyframes_cmd_old(
     **kwargs
 ):
+    if "crop" in kwargs:
+        croparg = kwargs["crop"]
+        if croparg is not None:
+            if croparg.count(",") != 3:
+                raise ValueError("crop argument must have 4 values separated by commas")
+            kwargs["crop"] = [int(x) for x in croparg.split(",")]
     _get_footage_keyframes(**kwargs)
 
 
@@ -73,6 +82,7 @@ def _get_footage_keyframes(
     step=None,
     navpath=None,
     crop=None,
+    maskpath=None,
     fps=None,
     increase_contrast=None,
     denoise_depth=None,
@@ -82,8 +92,11 @@ def _get_footage_keyframes(
     """
     Retrieves keyframes from a video at specified intervals.
 
+    Order of operations is contrast -> mask -> crop
+
     Args:
         output_dir: default is parent directory of video
+        crop: [top left x, top left y, width, height]
         fps: videos are at 25 fps
     """
     vidpath = Path(input_path)
@@ -93,7 +106,12 @@ def _get_footage_keyframes(
         outdir = Path(output_dir)
     imgdir = outdir / "rgb"
     # top left x, y, width, height
-    bbox = [0, 120, 1920, 875]
+    # bbox = [0, 120, 1920, 875]
+    bbox = crop
+    
+    mask = None
+    if maskpath is not None:
+        mask = cv2.imread(maskpath, cv2.IMREAD_GRAYSCALE)
 
     imgdir.mkdir(parents=True, exist_ok=True)
     vid = cv2.VideoCapture(str(vidpath))
@@ -111,12 +129,13 @@ def _get_footage_keyframes(
             break
         if increase_contrast:
             frame = apply_clahe(frame, clipLimit=2.0, tileGridSize=(8, 8))
+        if mask is not None:
+            frame = cv2.inpaint(frame, mask, 3, cv2.INPAINT_TELEA)
         if crop:
             cropped = frame[bbox[1] : bbox[1] + bbox[3], bbox[0] : bbox[0] + bbox[2]]
-            fname = f"cropped{str(cnt).zfill(4)}.png"
         else:
             cropped = frame
-            fname = f"uncropped{str(cnt).zfill(4)}.png"
+        fname = f"frame{str(cnt).zfill(4)}.png"
         fnames.append(fname)
         cv2.imwrite(str(imgdir / fname), cropped)
         cnt += 1

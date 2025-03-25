@@ -1,6 +1,13 @@
 # manually find these world coordinates from Blender
 # the rotations are in XYZ EULER COORDINATES IN DEGREES because that's Blender default
 # floor transform is how the plane normal is transformed from [0, 0, 1] originating from [0, 0, 0]
+empty:
+  scalefactor: 
+  t: []
+  R: []
+  t_floor: []
+  R_floor: []
+  object_name: barrelsingle-scaled.ply
 barrelddt1:
   scalefactor: 3.9878
   t: [-0.701382, -0.791855, 15.4895]
@@ -84,6 +91,62 @@ dive8-barrel-11-33:
   R: [46.1764, -19.8769, -17.9862]
   t_floor: [3.58027, 1.34136, 5.94023]
   R_floor: [136.051, -26.9939, -15.9371]
+  object_name: barrelsingle-scaled.ply
+dive8-barrel-12-55:
+  scalefactor: 1.34225
+  t: [2.23123, 2.49884, 4.06184]
+  R: [71.3303, -8.54883, 192.413]
+  t_floor: [2.32197, 2.6557, 4.58934]
+  R_floor: [209.649, -64.9097, -124.233]
+  object_name: barrelsingle-scaled.ply
+dive8-barrel-13-07:
+  scalefactor: 29.0813
+  t: [17.0733, 10.7522, 100.76]
+  R: [15.4492, 0.291911, -29.0813]
+  t_floor: [17.3917, 16.4356, 102.901]
+  R_floor: [106.726, 0.198211, -28.469]
+  object_name: barrelsingle-scaled.ply
+dive8-barrel-13-08:
+  scalefactor: 1.46604
+  t: [-0.44066, -0.783915, 10.4965]
+  R: [-88.8103, -39.6501, 89.6087]
+  t_floor: [-0.365107, -0.69786, 10.4279]
+  R_floor: [138.407, 0.557532, -0.494858]
+  object_name: barrelsingle-scaled.ply
+dive8-barrel-13-15:
+  scalefactor: 2.29225
+  t: [1.86577, 1.07869, 10.8966]
+  R: [-57.5798, -5.78336, 9.01542]
+  t_floor: [1.91114, 1.61186, 10.9028]
+  R_floor: [119.924, 0, 0]
+  object_name: barrelsingle-scaled.ply
+dive8-barrel-13-57:
+  scalefactor: 2.00181
+  t: [0.422384, 2.10653, 6.18925]
+  R: [435.72, 109.843, 256.293]
+  t_floor: [0.002646, 2.02115, 6.62597]
+  R_floor: [109.174, -3.67372, 1.36767]
+  object_name: barrelsingle-scaled.ply
+dive8-barrel-14-05:
+  scalefactor: 0.928331
+  t: [2.50499, 2.60967, 1.7729]
+  R: [9.94997, -63.7044, 2.95618]
+  t_floor: [2.47623, 2.72262, 1.84456]
+  R_floor: [124.166, -66.549, -20.6367]
+  object_name: barrelsingle-scaled.ply
+dive8-barrel-14-29:
+  scalefactor: 1.45831
+  t: [-1.60353, 1.54541, 7.40446]
+  R: [-30.8093, 16.5201, -9.62409]
+  t_floor: [-1.56063, 1.48009, 7.75345]
+  R_floor: [-219.659, 7.17752, 12.7529]
+  object_name: barrelsingle-scaled.ply
+dive8-barrel-14-32:
+  scalefactor: 1.89141
+  t: [-3.74124, 3.18325, 5.62416]
+  R: [-95.0077, -172.286, 9.56197]
+  t_floor: [-3.73525, 3.47423, 5.95944]
+  R_floor: [168.096, 61.4991, 82.2813]
   object_name: barrelsingle-scaled.ply
 dive8-barrel-15-04:
   scalefactor: 1.05997

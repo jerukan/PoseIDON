@@ -100,7 +100,7 @@ def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrit
                 print("This is probably some random memory error that happens uncontrollably, retry.")
 
 
-def _reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=False):
+def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=True, dense=True, overwrite=False):
     ### colmap code ###
     data_dir = Path(data_dir)
     img_dir = data_dir / "rgb"
@@ -112,9 +112,12 @@ def _reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=Fa
     database_path = colmap_out / "database.db"
     camposes_path = colmap_out / "cam_poses.json"
     sparseply_path = colmap_out / "sparse.ply"
+    # to generate from colmap
     # treat as ground truth since we don't have any intrinsics
     camintrinsics_path = data_dir / "camera.json"
     mvs_dir = colmap_out / "mvs"
+    # temporary directory for models with non-fixed focal length
+    # we want to fix focal length in the actual reconstruction
     sparsetmp_dir = colmap_out / "sparse_models_tmp"
     sparsetmp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -124,9 +127,14 @@ def _reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=Fa
         imgpaths, imgs = imgs_from_dir(img_dir)
         # assume same size for all images (surely colmap will error if not)
         w, h = imgs[0].size
-        # currently hardcoded, need to generalize it a little
-        f_prior = 1300
-        cx, cy = 960, 420
+        if f_prior is None:
+            # i forgot the usual prior estimate used for focal length. it was a function
+            # of the image dimensions somehow though
+            f_prior = 1300
+        if c_prior is None:
+            cx, cy = w / 2, h / 2
+        else:
+            cx, cy = c_prior
         camera = pycolmap.Camera(
             model=pycolmap.CameraModelId.RADIAL,
             width=w,
@@ -143,7 +151,7 @@ def _reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=Fa
                 # DSP-SIFT is presumably better
                 "domain_size_pooling": True,
                 "edge_threshold":  5.0,
-                "peak_threshold":  1 / 300,
+                "peak_threshold":  1 / 250,
                 "max_num_orientations": 3,
                 "num_octaves": 8,
                 "octave_resolution": 6,
@@ -174,7 +182,7 @@ def _reconstruct_colmap(data_dir, out_dir, sparse=True, dense=True, overwrite=Fa
             # just double all the thresholds lol
             # surely this won't go horribly
             "mapper": {
-                "abs_pose_max_error": 24.0,
+                "abs_pose_max_error": 12.0,
                 "abs_pose_min_inlier_ratio": 0.1,
                 "abs_pose_min_num_inliers": 10,
                 "filter_max_reproj_error": 8.0,
