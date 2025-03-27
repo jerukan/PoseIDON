@@ -180,7 +180,19 @@ def fit_foundpose_multiview(
     obj2cams = dca.stack(obj2cams)
     camhyps = dca.stack(camhyps)
 
-    model, inlieridxs = ransac(camhyps.world_from_cam.matrix4x4, obj2cams.matrix4x4, fit_func=fitcams, loss_func=camloss, cost_func=camcost, samp_min=5, inlier_min=5, inlier_thres=0.15, max_iter=50, seed=seed)
+    model, inlieridxs = ransac(
+        camhyps.world_from_cam.matrix4x4,
+        obj2cams.matrix4x4,
+        fit_func=fitcams,
+        loss_func=camloss,
+        cost_func=camcost,
+        samp_min=5,
+        inlier_min=5,
+        inlier_thres=0.15,
+        max_iter=50,
+        seed=seed,
+        relax_on_fail=True,
+    )
 
     scalefactor = model.scale
     camscaled = scale_cams(scalefactor, cams)

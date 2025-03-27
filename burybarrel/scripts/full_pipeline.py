@@ -4,9 +4,14 @@ from pathlib import Path
 import click
 import yaml
 
+from burybarrel import get_logger, add_file_handler, log_dir
 from burybarrel.scripts.create_masks import _create_masks
 from burybarrel.scripts.run_foundpose import _run_foundpose
 from burybarrel.scripts.run_foundpose_fit import _run_foundpose_fit
+
+
+logger = get_logger(__name__)
+add_file_handler(logger, log_dir / "fullpipelineruns.log")
 
 
 @click.command()
@@ -103,7 +108,10 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
 
 def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):
     for name in names:
-        _run_full_pipeline(name, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit)
+        try:
+            _run_full_pipeline(name, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit)
+        except Exception as e:
+            logger.error(f"ERROR IN RUNNING {name} with exception: {e}\nContinuing to next dataset")
 
 
 @click.command()
@@ -177,22 +185,22 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     help="Run multiview fitting step"
 )
 def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_mask=False, step_foundpose=False, step_fit=False):
+    logger.info(f"RUNNING FULL PIPELINE ON {names} WITH DEVICES {devices}")
     ndevices = len(devices)
     devicetaskdict = {device: [] for device in devices}
     for i, name in enumerate(names):
         devicetaskdict[devices[i % ndevices]].append(name)
-    print("DATASETS TO RUN ON EACH GPU:")
-    print(devicetaskdict)
+    logger.info("DATASETS TO RUN ON EACH GPU:")
+    logger.info(devicetaskdict)
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(devices)) as executor:
         future_to_res = {
-            executor.submit(_run_pipelines_gpu, names, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit): device
-            for device, names in devicetaskdict.items()
+            executor.submit(_run_pipelines_gpu, devnames, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit): (device, devnames)
+            for device, devnames in devicetaskdict.items()
         }
         for future in concurrent.futures.as_completed(future_to_res):
-            device = future_to_res[future]
+            device, devnames = future_to_res[future]
             try:
                 future.result()
-                print(f"finished {device}")
+                logger.info(f"finished datasets {device}")
             except Exception as e:
-                print(f"exception in {device}: {e}")
-                raise e
+                logger.error(f"exception in {device} for datasets {device}: {e}")
