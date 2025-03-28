@@ -4,7 +4,7 @@ from pathlib import Path
 import click
 import yaml
 
-from burybarrel import get_logger, add_file_handler, log_dir
+from burybarrel import config, get_logger, add_file_handler, log_dir
 from burybarrel.scripts.create_masks import _create_masks
 from burybarrel.scripts.run_foundpose import _run_foundpose
 from burybarrel.scripts.run_foundpose_fit import _run_foundpose_fit
@@ -28,7 +28,7 @@ add_file_handler(logger, log_dir / "fullpipelineruns.log")
     "datadir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
-    default="/scratch/jeyan/barreldata/divedata/",
+    default=config.DEFAULT_DATA_DIR,
     show_default=True,
 )
 @click.option(
@@ -37,7 +37,7 @@ add_file_handler(logger, log_dir / "fullpipelineruns.log")
     "resdir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
-    default="/scratch/jeyan/barreldata/results/",
+    default=config.DEFAULT_RESULTS_DIR,
     show_default=True,
 )
 @click.option(
@@ -46,7 +46,7 @@ add_file_handler(logger, log_dir / "fullpipelineruns.log")
     "objdir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
-    default="/scratch/jeyan/barreldata/models3d/",
+    default=config.DEFAULT_MODEL_DIR,
     show_default=True,
 )
 @click.option(
@@ -129,7 +129,7 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     "datadir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
-    default="/scratch/jeyan/barreldata/divedata/",
+    default=config.DEFAULT_DATA_DIR,
     show_default=True,
 )
 @click.option(
@@ -138,7 +138,7 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     "resdir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
-    default="/scratch/jeyan/barreldata/results/",
+    default=config.DEFAULT_RESULTS_DIR,
     show_default=True,
 )
 @click.option(
@@ -147,7 +147,7 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     "objdir",
     required=True,
     type=click.Path(exists=True, file_okay=False),
-    default="/scratch/jeyan/barreldata/models3d/",
+    default=config.DEFAULT_MODEL_DIR,
     show_default=True,
 )
 @click.option(

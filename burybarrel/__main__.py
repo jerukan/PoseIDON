@@ -2,7 +2,7 @@ import click
 
 from burybarrel.scripts import (
     create_masks, reconstruct_colmap, reconstruct_dust3r, get_footage_keyframes, run_foundpose_fit,
-    run_foundpose, run_full_pipeline, run_full_pipelines
+    run_foundpose, run_full_pipeline, run_full_pipelines, get_metrics
 )
 
 
@@ -40,6 +40,7 @@ cli.add_command(run_foundpose_fit)
 cli.add_command(run_foundpose)
 cli.add_command(run_full_pipeline)
 cli.add_command(run_full_pipelines)
+cli.add_command(get_metrics)
 
 
 if __name__ == "__main__":
