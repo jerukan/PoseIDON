@@ -85,7 +85,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
 
     allestmetrics = []
     for singleresdir in tqdm.tqdm(allresdirs):
-        print(f"evaluating {singleresdir}")
+        print(f"evaluating the following dataset: {singleresdir}")
         dataname = singleresdir.name
         singledatadir = datadir / dataname
         fitoutdir = singleresdir / "fit-output"
@@ -171,6 +171,11 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "use_icp": False,
             "burial_error_vol": -1,
             "burial_error_z": -1,
+            "path": str(singleresdir / "foundpose-output/inference"),
+            "description": datainfo["description"],
+            "lat": datainfo["lat"],
+            "lon": datainfo["lon"],
+            "object_name": datainfo["object_name"],
         }
         refestmetrics = {
             "dataset": dataname,
@@ -182,6 +187,11 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "use_icp": False,
             "burial_error_vol": -1,
             "burial_error_z": -1,
+            "path": str(singleresdir / "foundpose-output/inference"),
+            "description": datainfo["description"],
+            "lat": datainfo["lat"],
+            "lon": datainfo["lon"],
+            "object_name": datainfo["object_name"],
         }
         allestmetrics.append(coarseestmetrics)
         allestmetrics.append(refestmetrics)
@@ -221,6 +231,11 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                 "use_icp": estinfo["use_icp"],
                 "burial_error_vol": abs(estinfo["burial_ratio_vol"] - datainfo["burial_ratio_vol"]),
                 "burial_error_z": abs(estinfo["burial_ratio_z"] - datainfo["burial_ratio_z"]),
+                "path": str(fitdir),
+                "description": datainfo["description"],
+                "lat": datainfo["lat"],
+                "lon": datainfo["lon"],
+                "object_name": datainfo["object_name"],
                 # "all_vsd": np.array(allvsd).tolist(),
                 # "all_mssd": np.array(allmssd).tolist(),
                 # "all_mspd": np.array(allmspd).tolist(),
