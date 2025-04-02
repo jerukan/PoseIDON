@@ -1,5 +1,6 @@
 import concurrent.futures
 from pathlib import Path
+import traceback
 
 import click
 import yaml
@@ -111,7 +112,8 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
         try:
             _run_full_pipeline(name, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit)
         except Exception as e:
-            logger.error(f"ERROR IN RUNNING {name} with exception: {e}\nContinuing to next dataset")
+            logger.error(f"ERROR IN RUNNING {name} with exception: {e}\n{traceback.format_exc()}\nContinuing to next dataset")
+
 
 
 @click.command()
@@ -122,6 +124,7 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     required=True,
     type=click.STRING,
     multiple=True,
+    help="dataset names to run. input multiple times for multiple datasets. Use 'all' to run all datasets in the input directory",
 )
 @click.option(
     "-i",
@@ -157,7 +160,7 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     type=click.STRING,
     help="cuda devices to allocate",
     multiple=True,
-    default=[f"cuda:{i}" for i in range(1, 8)],
+    default=[f"cuda:{i}" for i in range(0, 8)],
     show_default=True,
 )
 @click.option(
@@ -185,9 +188,17 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     help="Run multiview fitting step"
 )
 def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_mask=False, step_foundpose=False, step_fit=False):
+    datadir = Path(datadir)
+    resdir = Path(resdir)
+    objdir = Path(objdir)
     logger.info(f"RUNNING FULL PIPELINE ON {names} WITH DEVICES {devices}")
     ndevices = len(devices)
     devicetaskdict = {device: [] for device in devices}
+    datadir.is_dir()
+    if "all" in [n.lower() for n in names]:
+        alldatadirs = filter(lambda x: x.is_dir() and (x / "info.json").exists(), datadir.glob("*"))
+        names = [x.name for x in alldatadirs]
+    # round robin assignment of datasets to devices
     for i, name in enumerate(names):
         devicetaskdict[devices[i % ndevices]].append(name)
     logger.info("DATASETS TO RUN ON EACH GPU:")

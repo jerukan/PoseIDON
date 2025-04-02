@@ -18,6 +18,7 @@ import yaml
 
 from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations
 
+from burybarrel import get_logger
 import burybarrel.colmap_util as cutil
 from burybarrel.image import render_v3d, render_models, to_contour, imgs_from_dir
 from burybarrel.plotting import get_axes_traces
@@ -26,6 +27,9 @@ from burybarrel.transform import icp, scale_T_translation, qangle, qmean, closes
 from burybarrel.mesh import segment_pc_from_masks
 from burybarrel.estimators import ransac
 from burybarrel.utils import match_lists, invert_idxs
+
+
+logger = get_logger(__name__)
 
 
 def scale_cams(scale: float, cams: v3d.Camera):
@@ -180,6 +184,18 @@ def fit_foundpose_multiview(
     obj2cams = dca.stack(obj2cams)
     camhyps = dca.stack(camhyps)
 
+    # this prevents a very strange error with einops
+    # Tensor type unknown to einops <class 'numpy.ndarray'>
+    # from the function: einops._backends.get_backend(tensor)
+    # the Transform.matrix4x4 just fails randomly like this (can't find numpy backend
+    # even though it's literally supported)
+    # why is the camera transform the only one with this problem?
+    # for some reason, just run it twice and it fixes itself???????
+    try:
+        camhyps.world_from_cam.matrix4x4
+    except Exception as e:
+        logger.info(f"einops error with backend, surely this exception block prevents it: {e}")
+
     model, inlieridxs = ransac(
         camhyps.world_from_cam.matrix4x4,
         obj2cams.matrix4x4,
@@ -285,10 +301,10 @@ def fit_foundpose_multiview(
     aggfig = v3d.make_fig([scenezuppts, meshzuppts, camzup])
     aggfig.write_image(resdir / "scene-aggregate-fit.png")
 
-    plane2cam = camscaled.world_from_cam.inv @ planeT[..., None]
+    plane2camfit = camscaled.world_from_cam.inv @ planeT[..., None]
     obj2camfit = camscaled.world_from_cam.inv @ meanT[..., None]
     estposes = []
-    for name, obj2cam in zip(names, obj2camfit):
+    for name, obj2cam, plane2cam in zip(names, obj2camfit, plane2camfit):
         posedata = {
             "img_path": str(name2imgpath[name]),
             "img_id": name2imgid[name],

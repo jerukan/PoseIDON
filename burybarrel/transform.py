@@ -10,6 +10,11 @@ from sklearn.neighbors import KDTree
 import torch
 import visu3d as v3d
 
+from burybarrel import get_logger
+
+
+logger = get_logger(__name__)
+
 
 def scale_T_translation(T: v3d.Transform, scale) -> v3d.Transform:
     """Specifically scale translation component of SE(3) transform"""
@@ -41,8 +46,10 @@ def qmean(qs: NDArray[quaternion.quaternion], weights: List[float]=None) -> quat
         weights = np.ones(len(qs))
     qs = np.squeeze(qs)
     Q = quaternion.as_float_array(qs * weights).T
+    # symmetric real matrix, and PSD
     QQ = Q @ Q.T
-    vals, vecs = np.linalg.eig(QQ)
+    # eigh should prevent complex eigenvectors from being selected, I think
+    vals, vecs = np.linalg.eigh(QQ)
     avg = vecs[:, np.argmax(np.abs(vals))]
     avg = avg / np.linalg.norm(avg)
     return quaternion.from_float_array(avg)

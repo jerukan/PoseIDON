@@ -173,12 +173,18 @@ def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.T
     """
     Renders meshes in given poses for a given camera view.
 
+    Args:
+        cam: single visu3d camera
+        meshes: list of trimesh meshes
+        transforms: list of world transforms for each mesh
+
     Returns:
         (np.ndarray, np.ndarray, np.ndarray): uint8 color (hxwh3), depth (hxw), mask (hxw)
     """
     if torch.cuda.is_available():
         os.environ["PYOPENGL_PLATFORM"] = "egl"
         if device is not None:
+            # specifies device for pyrender
             if ":" in device:
                 devicenum = device.split(":")[1]
                 os.environ["EGL_DEVICE_ID"] = devicenum

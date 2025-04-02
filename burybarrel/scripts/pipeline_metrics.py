@@ -64,7 +64,7 @@ from burybarrel.image import render_v3d, imgs_from_dir
     is_flag=True,
     default=False,
     type=click.BOOL,
-    help="choose the best hypothesis with ground truth knowledge (this will obviously skew to better performance); otherwise, just choose the 0th hypothesis",
+    help="choose the best hypothesis with ground truth knowledge (for raw foundpose results) (this will obviously skew to better performance); otherwise, just choose the 0th hypothesis",
 )
 def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
     # info about rankbest_hyp:
@@ -85,7 +85,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
 
     allestmetrics = []
     for singleresdir in tqdm.tqdm(allresdirs):
-        print(f"evaluating the following dataset: {singleresdir}")
+        print(f"processing results for following dataset: {singleresdir}")
         dataname = singleresdir.name
         singledatadir = datadir / dataname
         fitoutdir = singleresdir / "fit-output"
@@ -133,6 +133,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         vtxs = np.array(mesh.vertices)
 
         # raw foundpose metrics
+        print(f"evaluating raw foundpose results")
         posepath = singleresdir / "foundpose-output/inference/estimated-poses.json"
         with open(posepath, "rt") as f:
             ests = yaml.safe_load(f)
@@ -171,7 +172,8 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "use_icp": False,
             "burial_error_vol": -1,
             "burial_error_z": -1,
-            "path": str(singleresdir / "foundpose-output/inference"),
+            "resdir": str(singleresdir / "foundpose-output/inference"),
+            "datadir": str(singledatadir),
             "description": datainfo["description"],
             "lat": datainfo["lat"],
             "lon": datainfo["lon"],
@@ -187,7 +189,8 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "use_icp": False,
             "burial_error_vol": -1,
             "burial_error_z": -1,
-            "path": str(singleresdir / "foundpose-output/inference"),
+            "resdir": str(singleresdir / "foundpose-output/inference"),
+            "datadir": str(singledatadir),
             "description": datainfo["description"],
             "lat": datainfo["lat"],
             "lon": datainfo["lon"],
@@ -199,7 +202,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         # multiview fit metrics
         allfitdirs = list(filter(lambda x: x.is_dir(), fitoutdir.glob("*")))
         for fitdir in allfitdirs:
-            print(f"evaluating {fitdir}")
+            print(f"evaluating fitted results in {fitdir}")
             posepath = fitdir / "estimated-poses.json"
             estinfopath = fitdir / "reconstruction-info.json"
             with open(posepath, "rt") as f:
@@ -215,8 +218,10 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                     continue
                 R_gt = gt_Rs[i]
                 t_gt = gt_ts[i]
+                # rankbest_hyp is false since multiview fit already uses all hypotheses
+                # thus there is only 1 hypothesis per image
                 imgvsd, imgmssd, imgmspd = evaluate_singleest(
-                    ests, imgname, R_gt, t_gt, K, renderer, vtxs, object_name, syms=symTs, rankbest_hyp=rankbest_hyp, mask_gt=masks[i] if masks is not None else None
+                    ests, imgname, R_gt, t_gt, K, renderer, vtxs, object_name, syms=symTs, rankbest_hyp=False, mask_gt=masks[i] if masks is not None else None
                 )
                 allvsd.append(imgvsd)
                 allmssd.append(imgmssd)
@@ -231,7 +236,8 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                 "use_icp": estinfo["use_icp"],
                 "burial_error_vol": abs(estinfo["burial_ratio_vol"] - datainfo["burial_ratio_vol"]),
                 "burial_error_z": abs(estinfo["burial_ratio_z"] - datainfo["burial_ratio_z"]),
-                "path": str(fitdir),
+                "resdir": str(fitdir),
+                "datadir": str(singledatadir),
                 "description": datainfo["description"],
                 "lat": datainfo["lat"],
                 "lon": datainfo["lon"],
