@@ -30,6 +30,14 @@ class RadialCamera(v3d.PinholeCamera):
 
     k1k2: FloatArray["*shape 2"] = (0.0, 0.0)
 
+    @classmethod
+    def from_jsonargs(cls, fx, fy, cx, cy, k1, k2, height, width):
+        return cls(
+            K=np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]]),
+            resolution=(height, width),
+            k1k2=(k1, k2),
+        )
+
     def _px_and_depth_from_cam(
         self,
         points3d,

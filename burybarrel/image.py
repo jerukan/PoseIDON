@@ -169,7 +169,11 @@ def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1, background=None) 
     return img
 
 
-def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.Trimesh]], transforms: v3d.Transform, light_intensity=2.4, flags=pyrender.RenderFlags.NONE, device=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def render_models(
+    cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.Trimesh]],
+    transforms: v3d.Transform, light_intensity=2.4, flags=pyrender.RenderFlags.NONE, device=None,
+    bg_color=None, wireframe=False,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Renders meshes in given poses for a given camera view.
 
@@ -199,15 +203,22 @@ def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.T
     )
     if isinstance(meshes, trimesh.Geometry):
         meshes = [meshes]
-    if isinstance(transforms, list):
+    if not isinstance(transforms, v3d.Transform):
+        # probably a list or array of transforms
         transforms = dca.stack(transforms)
     transforms = transforms.reshape((-1,))
-    pyrendermeshes = [pyrender.Mesh.from_trimesh(mesh) for mesh in meshes]
+    pyrendermeshes = []
+    if isinstance(wireframe, bool):
+        wireframe = [wireframe] * len(meshes)
+    for mesh, iswireframe in zip(meshes, wireframe):
+        pyrendermeshes.append(pyrender.Mesh.from_trimesh(mesh, wireframe=iswireframe))
     camrot = v3d.Transform.from_angle(x=np.pi, y=0, z=0)
     oglcamT: v3d.Transform = cam.world_from_cam @ camrot
 
     ambient_light = np.array([0.02, 0.02, 0.02, 1.0])
-    scene = pyrender.Scene(bg_color=np.zeros(4), ambient_light=ambient_light)
+    if bg_color is None:
+        bg_color = np.zeros(4)
+    scene = pyrender.Scene(bg_color=bg_color, ambient_light=ambient_light)
     meshnodes = []
     for pyrendermesh, transform in zip(pyrendermeshes, transforms):
         meshnode = pyrender.Node(mesh=pyrendermesh, matrix=transform.matrix4x4)
