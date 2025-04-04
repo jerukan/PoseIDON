@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import List, Iterable
 
@@ -99,26 +100,51 @@ def _create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold
     sam_model.predictor = SAM2ImagePredictor(sam_model.model, mask_threshold=mask_threshold, max_hole_area=0.0, max_sprinkle_area=0.0)
     langsam_model.sam = sam_model
 
+    allmasksinfo = []
+
     # each box is [x_min, y_min, x_max, y_max]
     bboxes = []
     for i, imgpath in enumerate(tqdm(imgpaths)):
+        masksinfo = {
+            "img_path": str(imgpath),
+            "unprocessed_mask_paths": [],
+            "mask_paths": [],
+            "bboxes": [],
+            "bbox_scores": [],
+            "mask_scores": [],
+            "best_idx": -1,
+            "prompt": str(text_prompt),
+        }
         image_pil = Image.open(imgpath).convert("RGB")
         w, h = image_pil.size
 
         results = langsam_model.predict(
             [image_pil], [text_prompt], box_threshold=box_threshold, text_threshold=text_threshold
         )[0]
-        boxes = results["boxes"]
-        masks = results["masks"]
-        scores = results["scores"]  # bbox score from dino
-        mask_scores = np.array(results["mask_scores"])  # mask score from sam
+        # each box is x_min, y_min, x_max, y_max
+        boxes: np.ndarray = results["boxes"]
+        masks: np.ndarray = results["masks"]
+        scores: np.ndarray = results["scores"]  # bbox score from dino
+        mask_scores: np.ndarray = np.array(results["mask_scores"])  # mask score from sam
         if len(mask_scores.shape) == 0:
             mask_scores = mask_scores[None, ...]
 
+        masksinfo["bboxes"] = boxes.tolist()
+        masksinfo["bbox_scores"] = scores.tolist()
+        masksinfo["mask_scores"] = mask_scores.tolist()
         if len(masks) == 0:
             print(f"No objects of the '{text_prompt}' prompt detected in image {imgpath}")
+            allmasksinfo.append(masksinfo)
             continue
         masks_np = [(mask * 255).astype(np.uint8) for mask in masks]
+
+        # save unprocessed masks
+        for i, mask_np in enumerate(masks_np):
+            mask_path = maskdebug_dir / f"{imgpath.stem}_mask_{str(i).zfill(3)}_unprocessed.png"
+            masksinfo["unprocessed_mask_paths"].append(str(mask_path))
+            mask_image = Image.fromarray(mask_np, mode="L")
+            mask_image.save(mask_path)
+
         if closekernelsize > 0:
             # kernel = np.ones((closekernelsize, closekernelsize))
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (closekernelsize, closekernelsize))
@@ -127,6 +153,13 @@ def _create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold
             contours = [cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] for mask in masks_np]
             convexcontours = [cv2.convexHull(np.vstack(contour)) for contour in contours]
             masks_np = [cv2.drawContours(np.zeros_like(masks_np[0]), [convexcontour], -1, 255, thickness=cv2.FILLED) for convexcontour in convexcontours]
+
+        # save processed masks
+        for i, mask_np in enumerate(masks_np):
+            mask_path = maskdebug_dir / f"{imgpath.stem}_mask_{str(i).zfill(3)}.png"
+            masksinfo["mask_paths"].append(str(mask_path))
+            mask_image = Image.fromarray(mask_np, mode="L")
+            mask_image.save(mask_path)
 
         bbox_mask_path = maskcomp_dir / f"{imgpath.stem}_img_with_mask.png"
         bbox_mask_path.parent.mkdir(parents=True, exist_ok=True)
@@ -162,24 +195,22 @@ def _create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold
         # best_idx = np.argmin(boxareas)
         if len(maskareas[validmask]) == 0:
             print(f"No valid masks after filtering for {imgpath}")
+            allmasksinfo.append(masksinfo)
             continue
         best_idx = np.arange(len(boxes))[validmask][np.argmax(scores[validmask])]
-
-        # save masks
-        for i, mask_np in enumerate(masks_np):
-            # each box is x_min, y_min, x_max, y_max
-            bbox = boxes[i]
-            mask_path = maskdebug_dir / f"{imgpath.stem}_mask_{i+1}.png"
-            mask_image = Image.fromarray(mask_np)
-            mask_image.save(mask_path)
+        masksinfo["best_idx"] = int(best_idx)
 
         bbox = boxes[best_idx]
         mask_np = masks_np[best_idx]
         mask_path = outdir / f"{imgpath.stem}.png"
         mask_image = Image.fromarray(mask_np)
         mask_image.save(mask_path)
+
+        allmasksinfo.append(masksinfo)
         bboxes.append(bbox)
 
     bboxes = np.array(bboxes, dtype=int)
     with open(outdir / "bboxes.pickle", "wb") as f:
         pickle.dump(bboxes, f)
+    with open(outdir / "masksinfo.json", "wt") as f:
+        json.dump(allmasksinfo, f, indent=4)
