@@ -22,7 +22,6 @@ def get_footage_keyframes(cfg_path, names):
     for name in names:
         cfg = cfg_all[name]
         
-        # what am i doing with my life
         cfg_in = {
             **defaults,
             **cfg,
@@ -104,6 +103,7 @@ def _get_footage_keyframes(
         outdir = vidpath.parent / vidpath.stem
     else:
         outdir = Path(output_dir)
+    rawdir = outdir / "unprocessed"
     imgdir = outdir / "rgb"
     # top left x, y, width, height
     # bbox = [0, 120, 1920, 875]
@@ -114,6 +114,7 @@ def _get_footage_keyframes(
         mask = cv2.imread(maskpath, cv2.IMREAD_GRAYSCALE)
 
     imgdir.mkdir(parents=True, exist_ok=True)
+    rawdir.mkdir(parents=True, exist_ok=True)
     vid = cv2.VideoCapture(str(vidpath))
     nframes = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -127,6 +128,8 @@ def _get_footage_keyframes(
             # video ended before expected number of frames
             print("Video ended before expected number of frames")
             break
+        fname = f"frame{str(cnt).zfill(4)}.png"
+        cv2.imwrite(str(rawdir / fname), frame)
         if increase_contrast:
             frame = apply_clahe(frame, clipLimit=2.0, tileGridSize=(8, 8))
         if mask is not None:
@@ -135,7 +138,6 @@ def _get_footage_keyframes(
             cropped = frame[bbox[1] : bbox[1] + bbox[3], bbox[0] : bbox[0] + bbox[2]]
         else:
             cropped = frame
-        fname = f"frame{str(cnt).zfill(4)}.png"
         fnames.append(fname)
         cv2.imwrite(str(imgdir / fname), cropped)
         cnt += 1
