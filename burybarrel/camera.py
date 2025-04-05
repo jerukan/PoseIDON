@@ -125,7 +125,7 @@ def save_v3dcams(cams: v3d.Camera, imgpaths: List[Union[str, Path]], outpath: Un
     return camposedata
 
 
-def load_v3dcams(path, img_parent=None) -> Tuple[RadialCamera, List[Path]]:
+def load_v3dcams(path, img_parent=None) -> Tuple[v3d.Camera, List[Path]]:
     """
     JSON fields:
     ```

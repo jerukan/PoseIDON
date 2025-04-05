@@ -99,3 +99,21 @@ def get_axes_traces(transform, scale=1.0, linewidth=1.0):
             get_ray_trace(singleorgn, z[i] - singleorgn, length=scale, width=linewidth, color=zcol)
         ])
     return traces
+
+
+def get_line3d_trace(
+    points, markersize=0, markercolor=None, markersymbol=None, linecolor=None, linewidth=1,
+):
+    return go.Scatter3d(
+        x=points[:, 0], y=points[:, 1], z=points[:, 2],
+        marker=dict(
+            size=markersize,
+            color=markercolor,
+            # colorscale='Viridis',
+            symbol=markersymbol,
+        ),
+        line=dict(
+            color=linecolor,
+            width=linewidth,
+        )
+    )

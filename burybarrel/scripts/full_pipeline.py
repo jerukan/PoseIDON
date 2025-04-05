@@ -99,6 +99,7 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
     if step_mask:
         _create_masks(imgdir, text_prompt, maskdir, closekernelsize=5, convexhull=True, device=device)
     if step_foundpose:
+        # TODO this needs to be generalized for foundpose parameters lol
         _run_foundpose(datadir, resdir, objdir, Path("/home/jeyan/Projects/barrel-playground/otherrepos/foundpose"), pythonbinpath=Path("/scratch/jeyan/conda/envs/foundpose_gpu_311/bin/python"), device=device)
     if step_fit:
         _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=True, seed=0, device=device)
@@ -108,6 +109,12 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
 
 
 def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):
+    """
+    Runs a series of datasets iteratively on a single GPU.
+
+    I'm too lazy to figure out how to make each GPU dynamically take the next dataset when it's
+    done, so this will have to do.
+    """
     for name in names:
         try:
             _run_full_pipeline(name, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit)
@@ -188,6 +195,11 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     help="Run multiview fitting step"
 )
 def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_mask=False, step_foundpose=False, step_fit=False):
+    """
+    Run the full pipeline on multiple datasets in parallel using multiple GPUs.
+
+    The datasets are assigned to GPUs in a round-robin fashion.
+    """
     datadir = Path(datadir)
     resdir = Path(resdir)
     objdir = Path(objdir)

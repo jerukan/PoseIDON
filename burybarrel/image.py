@@ -238,7 +238,8 @@ def render_models(
     color, depth = renderer.render(scene, flags=flags)
     mask = depth > 0
     renderer.delete()
-    return color, depth, mask
+    # color is readonly for some reason, I assume the others are as well
+    return np.copy(color), np.copy(depth), np.copy(mask)
 
 
 def to_contour(img: np.ndarray, color=(255, 255, 255), dilate_iterations=1, outline_only=False, background=None):
