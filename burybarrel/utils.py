@@ -78,7 +78,12 @@ def match_lists(*lists: List[List]) -> List[int]:
 
 
 def cmapvals(vals, cmap="viridis", vmin=None, vmax=None):
-    """Maps a list of values to corresponding RGB values in a matplotlib colormap."""
+    """
+    Maps a list of values to corresponding RGB values in a matplotlib colormap.
+
+    Returns:
+        nx3 array of float RGB values
+    """
     cmap = plt.get_cmap(cmap)
     if vmin is None:
         vmin = np.min(vals)
@@ -123,3 +128,7 @@ def random_unitvec3(n=1):
     unnormxyzs = np.random.normal(0.0, 1.0, size=(n, 3))
     xyzs = unnormxyzs / np.linalg.norm(unnormxyzs, axis=1)[..., None]
     return xyzs
+
+
+def rgb2hex(rgb):
+    return "#{:02x}{:02x}{:02x}".format(*rgb)
