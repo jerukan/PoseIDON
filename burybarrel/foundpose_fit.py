@@ -23,18 +23,13 @@ import burybarrel.colmap_util as cutil
 from burybarrel.image import render_v3d, render_models, to_contour, imgs_from_dir
 from burybarrel.plotting import get_axes_traces
 from burybarrel.camera import load_v3dcams
-from burybarrel.transform import icp, scale_T_translation, qangle, qmean, closest_quat_sym, get_axes_rot, T_from_translation
+from burybarrel.transform import icp, scale_T_translation, qangle, qmean, closest_quat_sym, get_axes_rot, T_from_translation, scale_cams
 from burybarrel.mesh import segment_pc_from_masks
 from burybarrel.estimators import ransac
 from burybarrel.utils import match_lists, invert_idxs
 
 
 logger = get_logger(__name__)
-
-
-def scale_cams(scale: float, cams: v3d.Camera):
-    T = cams.world_from_cam
-    return cams.replace(world_from_cam=scale_T_translation(T, scale))
 
 
 def variance_from_scale(scale, data):
@@ -211,8 +206,8 @@ def fit_foundpose_multiview(
     )
 
     scalefactor = model.scale
-    camscaled = scale_cams(scalefactor, cams)
-    camhypsscaled = scale_cams(scalefactor, camhyps)
+    camscaled = scale_cams(cams, scalefactor)
+    camhypsscaled = scale_cams(camhyps, scalefactor)
     obj2worlds = camhypsscaled.world_from_cam @ obj2cams
     obj2worldsinlier: v3d.Transform = obj2worlds[inlieridxs]
 
@@ -376,7 +371,7 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
         seed=seed,
         resdir=estimate_dir
     )
-    camscaled = scale_cams(scalefactor, filtcams)
+    camscaled = scale_cams(filtcams, scalefactor)
 
     overlaydir = estimate_dir / f"fit-overlays"
     overlaydir.mkdir(exist_ok=True)

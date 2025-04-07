@@ -81,11 +81,6 @@ class RadialCamera(v3d.PinholeCamera):
         return points3d
 
 
-def scale_cams(scale: float, cams: v3d.Camera):
-    T = cams.world_from_cam
-    return cams.replace(world_from_cam=scale_T_translation(T, scale))
-
-
 def save_v3dcams(cams: v3d.Camera, imgpaths: List[Union[str, Path]], outpath: Union[str, Path], format="json"):
     """
     {

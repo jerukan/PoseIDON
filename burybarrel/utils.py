@@ -131,4 +131,8 @@ def random_unitvec3(n=1):
 
 
 def rgb2hex(rgb):
-    return "#{:02x}{:02x}{:02x}".format(*rgb)
+    if len(rgb) == 3:
+        return "#{:02x}{:02x}{:02x}".format(*rgb)
+    elif len(rgb) == 4:
+        return "#{:02x}{:02x}{:02x}{:02x}".format(*rgb)
+    raise ValueError("Only RGB or RGBA arrays are supported (3 or 4 elements)")
