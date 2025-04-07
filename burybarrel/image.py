@@ -272,3 +272,18 @@ def to_contour(img: np.ndarray, color=(255, 255, 255), dilate_iterations=1, outl
     img_contour[canny > 0] = color
 
     return img_contour
+
+
+def overlay_img_alpha(img: np.ndarray, overlay: np.ndarray, alpha=1.0, alpha_thresh=0):
+    """
+    Overlays and image with alpha channel on top of another image.
+    """
+    if img.shape[2] != 4:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
+    if overlay.shape[2] != 4:
+        overlay = cv2.cvtColor(overlay, cv2.COLOR_RGB2RGBA)
+    overlaymask = overlay[..., 3] > alpha_thresh
+    tooverlay = np.copy(overlay)
+    tooverlay[~overlaymask] = img[~overlaymask]
+    out = cv2.addWeighted(img, 1 - alpha, tooverlay, alpha, 0)
+    return out
