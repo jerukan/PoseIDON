@@ -42,6 +42,33 @@ def get_surface_line_traces(
     return traces
 
 
+def get_plane_zup(pts, n=10, z=0, square_grid=False):
+    xmin = np.min(pts[:, 0])
+    xmax = np.max(pts[:, 0])
+    ymin = np.min(pts[:, 1])
+    ymax = np.max(pts[:, 1])
+    xdiff = xmax - xmin
+    ydiff = ymax - ymin
+    nx, ny = n, n
+    if square_grid:
+        if xdiff > ydiff:
+            gridsize = xdiff / n
+            ny = int(ydiff // gridsize + 1)
+            diff = (ny * gridsize) - ydiff
+            ymin = ymin - diff / 2
+            ymax = ymax + diff / 2
+        else:
+            gridsize = ydiff / n
+            nx = int(xdiff // gridsize + 1)
+            diff = (nx * gridsize) - xdiff
+            xmin = xmin - diff / 2
+            xmax = xmax + diff / 2
+    xx, yy = np.meshgrid(np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny))
+    zz = np.zeros_like(xx)
+    zz.fill(z)
+    return xx, yy, zz
+
+
 def get_ray_trace(
     pos,
     raydir,
