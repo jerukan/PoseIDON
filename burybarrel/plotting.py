@@ -1,10 +1,13 @@
 from pathlib import Path
 from typing import List
 
+import cartopy
+import cartopy.crs as ccrs
 import cv2
 import dataclass_array as dca
 import matplotlib as mpl
 from matplotlib import cm
+import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
@@ -144,3 +147,47 @@ def get_line3d_trace(
             width=linewidth,
         )
     )
+
+
+def generate_domain(lats, lons, padding=0):
+    """Will have funky behavior if the coordinate range loops around back to 0."""
+    lat_rng = (np.min(lats), np.max(lats))
+    lon_rng = (np.min(lons), np.max(lons))
+    return dict(
+        S=lat_rng[0] - padding,
+        N=lat_rng[1] + padding,
+        W=lon_rng[0] - padding,
+        E=lon_rng[1] + padding,
+    )
+
+
+def get_carree_axis(domain=None, projection=None, land=False, fig=None, pos=None):
+    """
+    Args:
+        fig: exiting figure to add to if desired
+        pos: position on figure subplots to add axes to
+    """
+    if projection is None:
+        projection = ccrs.PlateCarree()
+    if fig is None:
+        fig = plt.figure()
+    if pos is None:
+        pos = 111
+    if isinstance(pos, int):
+        ax = fig.add_subplot(pos, projection=projection)
+    else:
+        ax = fig.add_subplot(*pos, projection=projection)
+    if domain is not None:
+        ext = [domain["W"], domain["E"], domain["S"], domain["N"]]
+        ax.set_extent(ext, crs=projection)
+    if land:
+        ax.add_feature(cartopy.feature.COASTLINE)
+    return fig, ax
+
+
+def get_carree_gl(ax):
+    gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
+    gl.top_labels, gl.right_labels = (False, False)
+    gl.xformatter = cartopy.mpl.gridliner.LONGITUDE_FORMATTER
+    gl.yformatter = cartopy.mpl.gridliner.LATITUDE_FORMATTER
+    return gl

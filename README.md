@@ -17,7 +17,7 @@ conda activate barrels
 conda install -c nvidia cuda
 export CUDA_HOME=$CONDA_PREFIX
 # install all through pip and call it a day
-pip install jupyter plotly dill pyransac3d open3d transforms3d roma mitsuba shapely fake-bpy-module jax rtree mapbox-earcut manifold3d kaleido git+https://github.com/luca-medeiros/lang-segment-anything.git git+https://github.com/google-research/visu3d.git git+https://github.com/jerukan/pyrender.git
+pip install jupyter plotly dill pyransac3d open3d transforms3d roma mitsuba shapely fake-bpy-module jax rtree mapbox-earcut manifold3d kaleido cartopy git+https://github.com/luca-medeiros/lang-segment-anything.git git+https://github.com/google-research/visu3d.git git+https://github.com/jerukan/pyrender.git
 ```
 
 ## Script running
