@@ -276,7 +276,9 @@ def fit_foundpose_multiview(
 
     meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmeanransac), t=np.mean(obj2worldsinliersym.t, axis=0))
     quatfig = v3d.make_fig(*get_axes_traces(obj2worldsinliersym, scale=0.5), *get_axes_traces(meanT, linewidth=10))
-    quatfig.write_image(resdir / "quaternion_fit.png")
+    quatfig.update_layout(showlegend=False)
+    # quatfig.write_image(resdir / "quaternion_fit.png")
+    quatfig.write_html(resdir / "quaternion_fit.html")
 
     # burial ratio by fitting plane to floor point cloud
     T_zup = planeT.inv @ meanT
@@ -294,7 +296,9 @@ def fit_foundpose_multiview(
     meshzuppts = v3d.Point3d(p=meshzup.vertices)
     scenezuppts = planeT.inv @ sceneptsscaled
     aggfig = v3d.make_fig([scenezuppts, meshzuppts, camzup])
-    aggfig.write_image(resdir / "scene-aggregate-fit.png")
+    aggfig.update_layout(showlegend=False)
+    # aggfig.write_image(resdir / "scene-aggregate-fit.png")
+    aggfig.write_html(resdir / "scene-aggregate-fit.html")
 
     plane2camfit = camscaled.world_from_cam.inv @ planeT[..., None]
     obj2camfit = camscaled.world_from_cam.inv @ meanT[..., None]
