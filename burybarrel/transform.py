@@ -17,6 +17,19 @@ from burybarrel import get_logger
 logger = get_logger(__name__)
 
 
+def apply_T_xyz(xx: np.ndarray, yy: np.ndarray, zz: np.ndarray, T: v3d.Transform):
+    """
+    Applies a transform to x, y, z coordinates with arbitrary shape.
+    """
+    original_shape = xx.shape
+    pts = np.array([xx.reshape(-1), yy.reshape(-1), zz.reshape(-1)]).T
+    pts = T @ pts
+    xx = pts[:, 0].reshape(original_shape)
+    yy = pts[:, 1].reshape(original_shape)
+    zz = pts[:, 2].reshape(original_shape)
+    return xx, yy, zz
+
+
 def T_from_blender(Reuler, t, scale=1) -> v3d.Transform:
     """
     Converts Blender translation and euler angle rotation to a 4x4 v3d Transform.

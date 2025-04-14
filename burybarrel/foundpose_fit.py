@@ -291,6 +291,7 @@ def fit_foundpose_multiview(
         burial_ratio_z = abs(zmin) / (abs(zmin) + zmax)
     slicedmesh = trimesh.intersections.slice_mesh_plane(meshzup, [0, 0, 1], [0, 0, 0], cap=True)
     burial_ratio_vol = 1 - slicedmesh.volume / objectmesh.volume
+    burial_depth = abs(zmin)
 
     # visualization of fitted scene
     meshzuppts = v3d.Point3d(p=meshzup.vertices)
@@ -314,7 +315,7 @@ def fit_foundpose_multiview(
             "t_floor": plane2cam.t.tolist(),
         }
         estposes.append(posedata)
-    return estposes, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z
+    return estposes, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z, burial_depth
 
 
 def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None, device=None):
@@ -362,7 +363,7 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
     with open(foundpose_res_path, "rt") as f:
         foundpose_res = yaml.safe_load(f)
     
-    results, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z = fit_foundpose_multiview(
+    results, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z, burial_depth = fit_foundpose_multiview(
         foundpose_res,
         filtnames,
         filtcams,
@@ -394,6 +395,7 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
         "scalefactor": scalefactor,
         "burial_ratio_vol": burial_ratio_vol,
         "burial_ratio_z": burial_ratio_z,
+        "burial_depth": burial_depth,
         "obj2world": meanT.matrix4x4.tolist(),
         "use_coarse": use_coarse,
         "use_icp": use_icp

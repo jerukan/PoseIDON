@@ -13,7 +13,7 @@ logging_format = logging.Formatter(
 )
 
 
-def get_logger(name):
+def get_logger(name) -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:
         logger.propagate = False

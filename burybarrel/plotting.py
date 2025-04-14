@@ -46,6 +46,7 @@ def get_surface_line_traces(
 
 
 def get_plane_zup(pts, n=10, z=0, square_grid=False):
+    pts = np.array(pts)
     xmin = np.min(pts[:, 0])
     xmax = np.max(pts[:, 0])
     ymin = np.min(pts[:, 1])
