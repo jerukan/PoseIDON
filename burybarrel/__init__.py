@@ -9,7 +9,7 @@ log_dir = Path("logs/")
 if not log_dir.is_dir():
     log_dir.mkdir(parents=True)
 logging_format = logging.Formatter(
-    "%(asctime)s,%(msecs)d %(name)s | %(levelname)s | %(message)s"
+    "%(asctime)s,%(msecs)d | %(name)s | %(levelname)s | %(message)s"
 )
 
 

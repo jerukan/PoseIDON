@@ -260,7 +260,7 @@ def fit_foundpose_multiview(
             icpfig = v3d.make_fig(
                 [centT @ meshpts, centT @ meshicppts, centT @ sceneobjzuppts, centT @ sceneobjzupoutlierpts],
             num_samples_point3d=1000)
-            icpfig.write_image(icpdebugdir / f"icpout_{str(i).zfill(4)}.png")
+            icpfig.write_html(icpdebugdir / f"icpout_{str(i).zfill(4)}.html")
         obj2worldsinlier = dca.stack(tmpT)
 
     quatsinlier = quaternion.from_rotation_matrix(obj2worldsinlier.R)

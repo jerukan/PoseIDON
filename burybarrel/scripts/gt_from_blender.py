@@ -72,8 +72,10 @@ def gt_from_blender(names, datadir, resdir, objdir):
     if "all" in [n.lower() for n in names]:
         alldatadirs = filter(lambda x: x.is_dir() and (x / "info.json").exists(), datadir.glob("*"))
         names = [x.name for x in alldatadirs]
-    for name in names:
+    logger.info(f"Running gt_from_blender for {names}")
+    for name in tqdm(names, desc="Overall datasets processing"):
         try:
+            logger.info(f"Generating gt for {name}")
             generate_gt_single(name, datadir, resdir, objdir)
         except Exception as e:
             logger.error(f"Error in {name}: {e}\n{traceback.format_exc()}")
@@ -110,7 +112,7 @@ def generate_gt_single(name, datadir, resdir, objdir):
     gttmp.mkdir(exist_ok=True)
     # visualization of GT
     plane = trimesh.creation.box(extents=(10, 10, 0.01))
-    for i, img in enumerate(tqdm(imgs)):
+    for i, img in enumerate(tqdm(imgs, desc="Rendering ground truth overlays")):
         imgpath = imgpaths[i]
         vtxs_trf = T_gt @ vtxs_p3d
         rgb, _, _ = render_models(camscaled[i], mesh, T_gt, light_intensity=200.0)
