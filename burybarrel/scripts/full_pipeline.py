@@ -199,6 +199,8 @@ def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_mask=F
     Run the full pipeline on multiple datasets in parallel using multiple GPUs.
 
     The datasets are assigned to GPUs in a round-robin fashion.
+
+    TODO: run colmap and openmvs from here too (uh installing openmvs without sudo is hard)
     """
     datadir = Path(datadir)
     resdir = Path(resdir)
@@ -215,6 +217,8 @@ def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_mask=F
         devicetaskdict[devices[i % ndevices]].append(name)
     logger.info("DATASETS TO RUN ON EACH GPU:")
     logger.info(devicetaskdict)
+    # ProcessPoolExecutor should make more sense, but it just fucking instantly deadlocks
+    # from SAM imports and everything else and I can't be bothered to figure it out
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(devices)) as executor:
         future_to_res = {
             executor.submit(_run_pipelines_gpu, devnames, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit): (device, devnames)

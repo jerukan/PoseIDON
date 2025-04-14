@@ -186,6 +186,7 @@ def render_models(
         (np.ndarray, np.ndarray, np.ndarray): uint8 color (hxwh3), depth (hxw), mask (hxw)
     """
     if torch.cuda.is_available():
+        # TODO not sure if this will have consistent behavior when multithreading
         os.environ["PYOPENGL_PLATFORM"] = "egl"
         if device is not None:
             # specifies device for pyrender
