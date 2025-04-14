@@ -64,9 +64,7 @@ logger = get_logger(__name__)
 )
 def gt_from_blender(names, datadir, resdir, objdir):
     """
-    Run the full pipeline on multiple datasets in parallel using multiple GPUs.
-
-    The datasets are assigned to GPUs in a round-robin fashion.
+    Generate ground truth information from Blender labeling.
     """
     datadir = Path(datadir)
     resdir = Path(resdir)
