@@ -62,7 +62,15 @@ logger = get_logger(__name__)
     default=config.DEFAULT_MODEL_DIR,
     show_default=True,
 )
-def gt_from_blender(names, datadir, resdir, objdir):
+@click.option(
+    "--render",
+    "render_overlays",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Visualize the ground truth via overlays on image and primitive renderings",
+)
+def gt_from_blender(names, datadir, resdir, objdir, render_overlays):
     """
     Generate ground truth information from Blender labeling.
     """
@@ -76,12 +84,12 @@ def gt_from_blender(names, datadir, resdir, objdir):
     for name in tqdm(names, desc="Overall datasets processing"):
         try:
             logger.info(f"Generating gt for {name}")
-            generate_gt_single(name, datadir, resdir, objdir)
+            generate_gt_single(name, datadir, resdir, objdir, render_overlays=render_overlays)
         except Exception as e:
             logger.error(f"Error in {name}: {e}\n{traceback.format_exc()}")
 
 
-def generate_gt_single(name, datadir, resdir, objdir):
+def generate_gt_single(name, datadir, resdir, objdir, render_overlays=True):
     datadir = Path(datadir) / name
     resdir = Path(resdir) / name
     camposes_path = resdir / "colmap-out/cam_poses.json"
@@ -111,18 +119,19 @@ def generate_gt_single(name, datadir, resdir, objdir):
     gttmp = gtoverlaydir / "tmp"
     gttmp.mkdir(exist_ok=True)
     # visualization of GT
-    plane = trimesh.creation.box(extents=(10, 10, 0.01))
-    for i, img in enumerate(tqdm(imgs, desc="Rendering ground truth overlays")):
-        imgpath = imgpaths[i]
-        vtxs_trf = T_gt @ vtxs_p3d
-        rgb, _, _ = render_models(camscaled[i], mesh, T_gt, light_intensity=200.0)
-        # Image.fromarray(rgb).save(gttmp / f"{imgpath.stem}.png")
-        overlayimg = to_contour(rgb, color=(255, 0, 0), background=img)
-        # these won't actually be used, just for visual reference, jpg so it's smaller
-        Image.fromarray(overlayimg).save(gtoverlaydir / f"{imgpath.stem}.jpg")
-        # Image.fromarray(render_v3d(camscaled[i], vtxs_trf, radius=4, background=img)).save(gtoverlaydir / f"{imgpaths[i].stem}.png")
-        rgb_primitives, _, _ = render_models(camscaled[i], [mesh, plane], [T_gt, T_floor_gt], light_intensity=200.0, flags=pyrender.RenderFlags.NONE)
-        Image.fromarray(rgb_primitives).save(gtoverlaydir / f"{imgpath.stem}_primitives.jpg")
+    if render_overlays:
+        plane = trimesh.creation.box(extents=(10, 10, 0.01))
+        for i, img in enumerate(tqdm(imgs, desc="Rendering ground truth overlays")):
+            imgpath = imgpaths[i]
+            vtxs_trf = T_gt @ vtxs_p3d
+            rgb, _, _ = render_models(camscaled[i], mesh, T_gt, light_intensity=200.0)
+            # Image.fromarray(rgb).save(gttmp / f"{imgpath.stem}.png")
+            overlayimg = to_contour(rgb, color=(255, 0, 0), background=img)
+            # these won't actually be used, just for visual reference, jpg so it's smaller
+            Image.fromarray(overlayimg).save(gtoverlaydir / f"{imgpath.stem}.jpg")
+            # Image.fromarray(render_v3d(camscaled[i], vtxs_trf, radius=4, background=img)).save(gtoverlaydir / f"{imgpaths[i].stem}.png")
+            rgb_primitives, _, _ = render_models(camscaled[i], [mesh, plane], [T_gt, T_floor_gt], light_intensity=200.0, flags=pyrender.RenderFlags.NONE)
+            Image.fromarray(rgb_primitives).save(gtoverlaydir / f"{imgpath.stem}_primitives.jpg")
     
     # idk
     floornorm = T_floor_gt.apply_to_dir(np.array([0, 0, 1]))
