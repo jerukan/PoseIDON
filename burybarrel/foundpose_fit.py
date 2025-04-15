@@ -144,6 +144,7 @@ def fit_foundpose_multiview(
     cams = cameras
     # names, cameras are already assumed to be ordered and filtered
     # depending on failed registration in COLMAP or SAM masks
+    # TODO: an image should not be exlucded for failed SAM, find a way to fix this
     name2cam = {name: cam for name, cam in zip(names, cameras)}
     # foundpose results are used as reference for image ids
     name2imgid = {}

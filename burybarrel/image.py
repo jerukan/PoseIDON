@@ -178,7 +178,7 @@ def render_models(
     Renders meshes in given poses for a given camera view.
 
     Args:
-        cam: single visu3d camera
+        cam: single visu3d camera (in optical frame coordinates, points towards +z)
         meshes: list of trimesh meshes
         transforms: list of world transforms for each mesh
 

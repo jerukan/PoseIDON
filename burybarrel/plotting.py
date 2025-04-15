@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import cartopy
 import cartopy.crs as ccrs
@@ -10,9 +10,11 @@ from matplotlib import cm
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
+import plotly.figure_factory as ff
 import plotly.graph_objects as go
 from sklearn.neighbors import KDTree
 import torch
+import trimesh
 import visu3d as v3d
 
 
@@ -148,6 +150,32 @@ def get_line3d_trace(
             width=linewidth,
         )
     )
+
+
+def get_trimesh_traces(mesh: trimesh.Trimesh, surfcolor: str=None, wirecolor: str=None) -> Tuple[go.Mesh3d, go.Scatter3d]:
+    """
+    Gets the plotly traces for mesh surface and mesh wireframe by ripping them from
+    the figure made by figure factory.
+
+    Args:
+        surfcolor (str): single color for the mesh surface, either hex or rgb()/rgba() string
+        wirecolor (str): single color for wireframe
+    
+    Returns:
+        (mesh trace, wireframe trace)
+    """
+    if surfcolor is not None:
+        surfcolor = [surfcolor] * len(mesh.faces)
+    meshfig = ff.create_trisurf(
+        x=mesh.vertices[:, 0], y=mesh.vertices[:, 1], z=mesh.vertices[:, 2],
+        simplices=mesh.faces, color_func=surfcolor, show_colorbar=False
+    )
+    traces = list(meshfig.select_traces())
+    meshtrace: go.Mesh3d = traces[0]
+    wireframetrace: go.Scatter3d = traces[1]
+    if wirecolor is not None:
+        wireframetrace = wireframetrace.update({"line": {"color": wirecolor}})
+    return meshtrace, wireframetrace
 
 
 def generate_domain(lats, lons, padding=0):
