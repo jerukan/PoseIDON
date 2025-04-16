@@ -98,10 +98,12 @@ def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrit
         indir = Path(data_dir) / dsname
         outdir = Path(out_dir) / dsname
         success = False
+        logger.info(f"BEGINNING RECONSTRUCTION for dataset {dsname}")
         for i in range(num_retries):
             try:
                 _reconstruct_colmap(indir, outdir, sparse=sparse, dense=dense, overwrite=overwrite)
                 success = True
+                logger.info(f"RECONSTRUCTION SUCCESS for dataset {dsname}")
                 break
             except InvalidReconstructionError as e:
                 if i < num_retries - 1:
@@ -113,7 +115,7 @@ def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrit
                 print(f"Failed to reconstruct dataset {dsname} due to error: {e}")
                 print("This is probably some random memory error that happens uncontrollably, retry.")
         if not success:
-            logger.error(f"RECONSTRUCTION FAILURE to reconstruct dataset {dsname} after {num_retries} attempts.")
+            logger.error(f"RECONSTRUCTION FAILURE to reconstruct dataset {dsname} after {num_retries} attempts")
 
 
 def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=True, dense=True, overwrite=False):
