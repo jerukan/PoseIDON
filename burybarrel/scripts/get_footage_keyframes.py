@@ -112,7 +112,7 @@ def _get_footage_keyframes(
     if output_dir is None:
         outdir = vidpath.parent / vidpath.stem
     else:
-        outdir = Path(output_dir)
+        outdir = Path(output_dir) / vidpath.stem
     rawdir = outdir / "unprocessed"
     imgdir = outdir / "rgb"
     # top left x, y, width, height
