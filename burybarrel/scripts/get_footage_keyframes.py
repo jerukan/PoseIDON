@@ -6,15 +6,21 @@ import cv2
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import traceback
 import yaml
 
+from burybarrel import get_logger
 from burybarrel.utils import denoise_nav_depth
 from burybarrel.image import apply_clahe
 
 
+logger = get_logger(__name__)
+DEFAULT_CFG_PATH = Path("configs/footage.yaml")
+
+
 @click.command()
-@click.option("-c", "--config", "cfg_path", required=False, type=click.Path(exists=True, dir_okay=False), help="video informaton yaml file")
-@click.option("-n", "--name", "names", required=False, type=click.STRING, help="name of data in the yaml config", multiple=True)
+@click.option("-c", "--config", "cfg_path", default=DEFAULT_CFG_PATH, required=True, type=click.Path(exists=True, dir_okay=False), show_default=True, help="video informaton yaml file")
+@click.option("-n", "--name", "names", required=True, type=click.STRING, help="name of data in the yaml config", multiple=True)
 def get_footage_keyframes(cfg_path, names):
     with open(cfg_path, "rt") as f:
         cfg_all = yaml.safe_load(f)
@@ -26,7 +32,11 @@ def get_footage_keyframes(cfg_path, names):
             **defaults,
             **cfg,
         }
-        _get_footage_keyframes(**cfg_in)
+        try:
+            _get_footage_keyframes(**cfg_in)
+        except Exception as e:
+            logger.error(f"ERROR PROCESSING {name}: {e}\n{traceback.format_exc()}")
+            continue
 
 
 @click.command()

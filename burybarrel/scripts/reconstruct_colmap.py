@@ -20,6 +20,10 @@ from burybarrel.camera import save_v3dcams, RadialCamera
 from burybarrel.mesh import load_mesh
 
 
+DEFAULT_DATA_DIR_LOCAL = Path("data/input_data/")
+DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
+
+
 @click.command()
 @click.option(
     "-n",
@@ -34,7 +38,7 @@ from burybarrel.mesh import load_mesh
     "-d",
     "--datadir",
     "data_dir",
-    default="data/input_data/",
+    default=DEFAULT_DATA_DIR_LOCAL,
     required=True,
     type=click.Path(exists=True, file_okay=False),
     show_default=True,
@@ -44,7 +48,7 @@ from burybarrel.mesh import load_mesh
     "-o",
     "--outdir",
     "out_dir",
-    default="results/",
+    default=DEFAULT_RESULTS_DIR_LOCAL,
     required=True,
     type=click.Path(file_okay=False),
     show_default=True,
