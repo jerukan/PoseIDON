@@ -14,12 +14,15 @@ import trimesh
 import visu3d as v3d
 import yaml
 
+from burybarrel import get_logger, add_file_handler, log_dir
 import burybarrel.colmap_util as cutil
 from burybarrel.image import imgs_from_dir
 from burybarrel.camera import save_v3dcams, RadialCamera
 from burybarrel.mesh import load_mesh
 
 
+logger = get_logger(__name__)
+add_file_handler(logger, log_dir / "colmap_reconstruct.log")
 DEFAULT_DATA_DIR_LOCAL = Path("data/input_data/")
 DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
 
@@ -86,12 +89,19 @@ DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     help="Max number of times to retry COLMAP reconstruction on failure",
 )
 def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrite, num_retries):
+    """
+    3D reconstruction with COLMAP + OpenMVS via brute force.
+
+    This will retry up to a number of times if the reconstruction fails catastrophically.
+    """
     for dsname in dataset_names:
         indir = Path(data_dir) / dsname
         outdir = Path(out_dir) / dsname
+        success = False
         for i in range(num_retries):
             try:
                 _reconstruct_colmap(indir, outdir, sparse=sparse, dense=dense, overwrite=overwrite)
+                success = True
                 break
             except InvalidReconstructionError as e:
                 if i < num_retries - 1:
@@ -102,6 +112,8 @@ def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrit
             except Exception as e:
                 print(f"Failed to reconstruct dataset {dsname} due to error: {e}")
                 print("This is probably some random memory error that happens uncontrollably, retry.")
+        if not success:
+            logger.error(f"RECONSTRUCTION FAILURE to reconstruct dataset {dsname} after {num_retries} attempts.")
 
 
 def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=True, dense=True, overwrite=False):
