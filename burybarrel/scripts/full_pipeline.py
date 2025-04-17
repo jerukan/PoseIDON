@@ -171,6 +171,14 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     show_default=True,
 )
 @click.option(
+    "--step-all",
+    "step_all",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Run ALL steps in the pipeline (overrides other step flags)"
+)
+@click.option(
     "--step-mask",
     "step_mask",
     is_flag=True,
@@ -194,7 +202,7 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     type=click.BOOL,
     help="Run multiview fitting step"
 )
-def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_mask=False, step_foundpose=False, step_fit=False):
+def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_all=False, step_mask=False, step_foundpose=False, step_fit=False):
     """
     Run the full pipeline on multiple datasets in parallel using multiple GPUs.
 
@@ -205,6 +213,10 @@ def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_mask=F
     datadir = Path(datadir)
     resdir = Path(resdir)
     objdir = Path(objdir)
+    if step_all:
+        step_mask = True
+        step_foundpose = True
+        step_fit = True
     logger.info(f"RUNNING FULL PIPELINE ON {names} WITH DEVICES {devices}")
     ndevices = len(devices)
     devicetaskdict = {device: [] for device in devices}
