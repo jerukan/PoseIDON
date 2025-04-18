@@ -131,11 +131,12 @@ def generate_gt_single(name, datadir, resdir, objdir, render_overlays=True, over
     vtxs_p3d = v3d.Point3d(p=vtxs, rgb=rgb)
     # scaled 3d
     camscaled = cams.replace(world_from_cam=cams.world_from_cam.replace(t=cams.world_from_cam.t * (1 / scalefactor)))
-    gtoverlaydir = datadir / "gt-overlays"
-    gtoverlaydir.mkdir(exist_ok=True)
     # visualization of GT
     if render_overlays:
-        delete_imgs_in_dir(gtoverlaydir)
+        gtoverlaydir = datadir / "gt-overlays"
+        if gtoverlaydir.exists():
+            delete_imgs_in_dir(gtoverlaydir)
+        gtoverlaydir.mkdir(exist_ok=True)
         plane = trimesh.creation.box(extents=(10, 10, 0.01))
         for i, img in enumerate(tqdm(imgs, desc="Rendering ground truth overlays")):
             imgpath = imgpaths[i]
