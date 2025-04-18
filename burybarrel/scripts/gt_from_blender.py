@@ -16,7 +16,7 @@ import yaml
 
 from burybarrel import config, get_logger
 from burybarrel.transform import T_from_blender
-from burybarrel.image import render_v3d, render_models, to_contour
+from burybarrel.image import render_v3d, render_models, to_contour, delete_imgs_in_dir
 from burybarrel.camera import load_v3dcams
 from burybarrel.utils import add_to_json
 from burybarrel.plotting import get_surface_line_traces, get_ray_trace
@@ -70,9 +70,19 @@ logger = get_logger(__name__)
     type=click.BOOL,
     help="Visualize the ground truth via overlays on image and primitive renderings",
 )
-def gt_from_blender(names, datadir, resdir, objdir, render_overlays):
+@click.option(
+    "--overwrite",
+    "overwrite",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Overwrite gt data if it already exists",
+)
+def gt_from_blender(names, datadir, resdir, objdir, render_overlays, overwrite):
     """
-    Generate ground truth information from Blender labeling.
+    Generate ground truth information from Blender labeling. Will correspond directly
+    to the COLMAP reconstruction camera poses and point cloud. If the reconstruction is
+    generated again, GT will have to be labeled again.
     """
     datadir = Path(datadir)
     resdir = Path(resdir)
@@ -84,21 +94,28 @@ def gt_from_blender(names, datadir, resdir, objdir, render_overlays):
     for name in tqdm(names, desc="Overall datasets processing"):
         try:
             logger.info(f"Generating gt for {name}")
-            generate_gt_single(name, datadir, resdir, objdir, render_overlays=render_overlays)
+            generate_gt_single(name, datadir, resdir, objdir, render_overlays=render_overlays, overwrite=overwrite)
         except Exception as e:
             logger.error(f"Error in {name}: {e}\n{traceback.format_exc()}")
 
 
-def generate_gt_single(name, datadir, resdir, objdir, render_overlays=True):
+def generate_gt_single(name, datadir, resdir, objdir, render_overlays=True, overwrite=True):
     datadir = Path(datadir) / name
     resdir = Path(resdir) / name
     camposes_path = resdir / "colmap-out/cam_poses.json"
+    gt_obj2cam_path = datadir / "gt_obj2cam.json"
+    if not overwrite and gt_obj2cam_path.exists():
+        logger.info(f"GT data already exists for {name}, skipping")
+        return
 
+    datasetinfopath = datadir / "info.json"
+    with open(datasetinfopath, "rt") as f:
+        datasetinfo = yaml.safe_load(f)
     infopath = Path("configs/blender_gt_info.yaml")
     with open(infopath, "rt") as f:
         allinfo = yaml.safe_load(f)
     info = allinfo[name]
-    model_path = Path(objdir) / info["object_name"]
+    model_path = Path(objdir) / datasetinfo["object_name"]
     cams, imgpaths = load_v3dcams(camposes_path, img_parent=datadir / "rgb")
     scalefactor = info["scalefactor"]
 
@@ -116,20 +133,17 @@ def generate_gt_single(name, datadir, resdir, objdir, render_overlays=True):
     camscaled = cams.replace(world_from_cam=cams.world_from_cam.replace(t=cams.world_from_cam.t * (1 / scalefactor)))
     gtoverlaydir = datadir / "gt-overlays"
     gtoverlaydir.mkdir(exist_ok=True)
-    gttmp = gtoverlaydir / "tmp"
-    gttmp.mkdir(exist_ok=True)
     # visualization of GT
     if render_overlays:
+        delete_imgs_in_dir(gtoverlaydir)
         plane = trimesh.creation.box(extents=(10, 10, 0.01))
         for i, img in enumerate(tqdm(imgs, desc="Rendering ground truth overlays")):
             imgpath = imgpaths[i]
             vtxs_trf = T_gt @ vtxs_p3d
             rgb, _, _ = render_models(camscaled[i], mesh, T_gt, light_intensity=200.0)
-            # Image.fromarray(rgb).save(gttmp / f"{imgpath.stem}.png")
             overlayimg = to_contour(rgb, color=(255, 0, 0), background=img)
             # these won't actually be used, just for visual reference, jpg so it's smaller
             Image.fromarray(overlayimg).save(gtoverlaydir / f"{imgpath.stem}.jpg")
-            # Image.fromarray(render_v3d(camscaled[i], vtxs_trf, radius=4, background=img)).save(gtoverlaydir / f"{imgpaths[i].stem}.png")
             rgb_primitives, _, _ = render_models(camscaled[i], [mesh, plane], [T_gt, T_floor_gt], light_intensity=200.0, flags=pyrender.RenderFlags.NONE)
             Image.fromarray(rgb_primitives).save(gtoverlaydir / f"{imgpath.stem}_primitives.jpg")
     
@@ -166,7 +180,7 @@ def generate_gt_single(name, datadir, resdir, objdir, render_overlays=True):
             "t_floor": T_floor.t.tolist(),
         }
         gt_data_list.append(truthdata)
-    with open(datadir / "gt_obj2cam.json", "wt") as f:
+    with open(gt_obj2cam_path, "wt") as f:
         json.dump(gt_data_list, f, indent=4)
     add_to_json(
         {

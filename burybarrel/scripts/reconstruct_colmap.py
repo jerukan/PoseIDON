@@ -34,7 +34,7 @@ DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     "dataset_names",
     required=True,
     type=click.STRING,
-    help="Names of all datasets to process in data_dir",
+    help="Names of all datasets to process in data_dir. Use 'all' to run all valid datasets in data_dir",
     multiple=True,
 )
 @click.option(
@@ -79,7 +79,7 @@ DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     is_flag=True,
     default=False,
     type=click.BOOL,
-    help="Overwrite existing COLMAP database if it exists (it complains by default)",
+    help="Overwrite existing reconstructions if they exist",
 )
 @click.option(
     "--num-retries",
@@ -94,14 +94,27 @@ def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrit
 
     This will retry up to a number of times if the reconstruction fails catastrophically.
     """
+    if "all" in [n.lower() for n in dataset_names]:
+        dataset_names = []
+        alldatapaths = Path(data_dir).glob("*")
+        for datapath in alldatapaths:
+            if datapath.is_dir() and (datapath / "info.json").exists():
+                dsname = datapath.name
+                dataset_names.append(dsname)
+    failures = []
     for dsname in dataset_names:
         indir = Path(data_dir) / dsname
         outdir = Path(out_dir) / dsname
         success = False
         logger.info(f"BEGINNING RECONSTRUCTION for dataset {dsname}")
         for i in range(num_retries):
+            # note this has a tendency of segfaulting randomly, there is no feasible way to
+            # catch and prevent this
             try:
-                _reconstruct_colmap(indir, outdir, sparse=sparse, dense=dense, overwrite=overwrite)
+                if i == 0:
+                    _reconstruct_colmap(indir, outdir, sparse=sparse, dense=dense, overwrite=overwrite)
+                else:
+                    _reconstruct_colmap(indir, outdir, sparse=sparse, dense=dense, overwrite=True)
                 success = True
                 logger.info(f"RECONSTRUCTION SUCCESS for dataset {dsname}")
                 break
@@ -116,6 +129,8 @@ def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrit
                 print("This is probably some random memory error that happens uncontrollably, retry.")
         if not success:
             logger.error(f"RECONSTRUCTION FAILURE to reconstruct dataset {dsname} after {num_retries} attempts")
+            failures.append(dsname)
+    logger.info(f"FAILED RECONSTRUCTION DATASETS: {failures}")
 
 
 def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=True, dense=True, overwrite=False):
@@ -138,6 +153,10 @@ def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=Tr
     # we want to fix focal length in the actual reconstruction
     sparsetmp_dir = colmap_out / "sparse_models_tmp"
     sparsetmp_dir.mkdir(parents=True, exist_ok=True)
+
+    if not overwrite and (openmvs_out / "scene_dense_mesh_refine_texture.obj").exists():
+        logger.info(f"Output directory {out_dir} already has textured mesh, skipping")
+        return
 
     if sparse:
         if overwrite and database_path.exists():
@@ -269,6 +288,8 @@ def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=Tr
         trimeshpc.export(sparseply_path)
 
         if overwrite and mvs_dir.exists():
+            # rmtree is probably stupid, but mvs_dir is at least guaranteed to only to be
+            # a dir called mvs, and not root lol
             shutil.rmtree(mvs_dir)
         # not sure the pattern colmap stores sparse maps, I presume "0" is the best
         pycolmap.undistort_images(

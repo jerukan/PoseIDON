@@ -17,7 +17,11 @@ import trimesh
 import visu3d as v3d
 import yaml
 
+from burybarrel import get_logger
 from burybarrel.utils import ext_pattern
+
+
+logger = get_logger(__name__)
 
 
 def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False, grayscale=False) -> Tuple[List[Path], Union[np.ndarray, List[Image.Image]]]:
@@ -54,6 +58,23 @@ def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False, grayscal
         else:
             imgs = [img.convert("RGB") for img in imgs]
     return imgpaths, imgs
+
+
+def delete_imgs_in_dir(imgdir, patterns=None):
+    """
+    Deletes all images in a directory but not the directory itself.
+    """
+    if patterns is None:
+        patterns = [ext_pattern("png"), ext_pattern("jpg"), ext_pattern("jpeg")]
+    imgdir = Path(imgdir)
+    if not imgdir.exists():
+        raise FileNotFoundError(f"Directory {imgdir} not found.")
+    nimgs = 0
+    for pattern in patterns:
+        for imgpath in imgdir.glob(pattern):
+            imgpath.unlink()
+            nimgs += 1
+    logger.info(f"Deleted {nimgs} images in {imgdir}.")
 
 
 def get_bbox_mask(bbox, W, H):

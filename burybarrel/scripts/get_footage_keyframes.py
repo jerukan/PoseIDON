@@ -11,7 +11,7 @@ import yaml
 
 from burybarrel import get_logger
 from burybarrel.utils import denoise_nav_depth
-from burybarrel.image import apply_clahe
+from burybarrel.image import apply_clahe, delete_imgs_in_dir
 
 
 logger = get_logger(__name__)
@@ -19,18 +19,47 @@ DEFAULT_CFG_PATH = Path("configs/footage.yaml")
 
 
 @click.command()
-@click.option("-c", "--config", "cfg_path", default=DEFAULT_CFG_PATH, required=True, type=click.Path(exists=True, dir_okay=False), show_default=True, help="video informaton yaml file")
-@click.option("-n", "--name", "names", required=True, type=click.STRING, help="name of data in the yaml config", multiple=True)
-def get_footage_keyframes(cfg_path, names):
+@click.option(
+    "-c",
+    "--config",
+    "cfg_path",
+    default=DEFAULT_CFG_PATH,
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    show_default=True,
+    help="video informaton yaml file"
+)
+@click.option(
+    "-n",
+    "--name",
+    "names",
+    required=True,
+    type=click.STRING,
+    help="All names of data in the yaml config. Use 'all' to run all datasets in the config",
+    multiple=True
+)
+@click.option(
+    "--overwrite",
+    "overwrite",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Overwrite existing image/data in corresponding output directories, otherwise skip"
+)
+def get_footage_keyframes(cfg_path, names, overwrite):
     with open(cfg_path, "rt") as f:
         cfg_all = yaml.safe_load(f)
     defaults = cfg_all["default"]
+    if "all" in [n.lower() for n in names]:
+        names = list(cfg_all.keys())
+        names.remove("default")
     for name in names:
         cfg = cfg_all[name]
         
         cfg_in = {
             **defaults,
             **cfg,
+            "overwrite": overwrite,
         }
         try:
             _get_footage_keyframes(**cfg_in)
@@ -97,6 +126,7 @@ def _get_footage_keyframes(
     denoise_depth=None,
     object_name=None,
     description=None,
+    overwrite=False,
 ):
     """
     Retrieves keyframes from a video at specified intervals.
@@ -113,6 +143,11 @@ def _get_footage_keyframes(
         outdir = vidpath.parent / vidpath.stem
     else:
         outdir = Path(output_dir) / vidpath.stem
+    if not overwrite:
+        # info.json is the last thing to be written, so it indicates data there is complete
+        if (outdir / "info.json").exists():
+            logger.info(f"Output directory {outdir} already has complete keyframes + metadata, skipping")
+            return
     rawdir = outdir / "unprocessed"
     imgdir = outdir / "rgb"
     # top left x, y, width, height
@@ -123,6 +158,12 @@ def _get_footage_keyframes(
     if maskpath is not None:
         mask = cv2.imread(maskpath, cv2.IMREAD_GRAYSCALE)
 
+    # these are the only things that need to get deleted
+    # other info csv and json files will get overridden by the end
+    if imgdir.exists():
+        delete_imgs_in_dir(imgdir)
+    if rawdir.exists():
+        delete_imgs_in_dir(rawdir)
     imgdir.mkdir(parents=True, exist_ok=True)
     rawdir.mkdir(parents=True, exist_ok=True)
     vid = cv2.VideoCapture(str(vidpath))
