@@ -79,9 +79,10 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         allobjectinfo: dict = json.load(f)
     allresdirs = list(filter(lambda x: x.is_dir(), resdir.glob("*")))
 
-    renderer = create_renderer(1920, 875, renderer_type="vispy", mode="depth")
-    for modelname in allobjectinfo.keys():
-        renderer.add_object(modelname, objectdir / modelname)
+    resolution2renderer = {}
+    # renderer = create_renderer(1920, 875, renderer_type="vispy", mode="depth")
+    # for modelname in allobjectinfo.keys():
+    #     renderer.add_object(modelname, objectdir / modelname)
 
     allestmetrics = []
     for singleresdir in tqdm.tqdm(allresdirs):
@@ -99,6 +100,15 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             datainfo = yaml.safe_load(f)
         with open(singledatadir / "camera.json", "rt") as f:
             caminfo = yaml.safe_load(f)
+        
+        _, imgs = imgs_from_dir(singledatadir / "rgb")
+        w, h = imgs[0].size
+        if (w, h) not in resolution2renderer.keys():
+            newrenderer = create_renderer(w, h, renderer_type="vispy", mode="depth")
+            for modelname in allobjectinfo.keys():
+                newrenderer.add_object(modelname, objectdir / modelname)
+            resolution2renderer[(w, h)] = newrenderer
+        renderer = resolution2renderer[(w, h)]
         # gt masks (may not exist)
         masksdir = singledatadir / "mask"
         maskpaths = None

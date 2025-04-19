@@ -80,6 +80,9 @@ def _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device
     basetemplate["common_opts"]["object_path"] = str(objdir / datainfo["object_name"])
     basetemplate["common_opts"]["output_path"] = str(foundpose_outdir)
     basetemplate["common_opts"]["cam_json_path"] = str(datadir / "camera.json")
+    # barrels are because they're bigger and further away i guess
+    if datainfo["object_name"] == "barrelsingle-scaled.ply":
+        basetemplate["gen_templates_opts"]["light_intensity"] = 120.0
     basetemplate["common_opts"]["device"] = device
     basetemplate["infer_opts"]["dataset_path"] = str(datadir / "rgb")
     basetemplate["infer_opts"]["mask_path"] = str(resdir / "sam-masks")
