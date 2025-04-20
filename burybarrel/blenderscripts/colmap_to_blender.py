@@ -16,7 +16,7 @@ import mathutils
 print("CURRENT WORKING DIRECTORY")
 print(os.getcwd())
 
-name = "dive10-barrel-04-35"
+name = "dive8-barrel-16-19"
 if "Scene" not in bpy.context.scene.name:
     raise ValueError("You forgot to change scenes idiot change it")
 bpy.context.scene.name = name
@@ -51,10 +51,15 @@ for c in bpy.context.scene.collection.children:
     bpy.context.scene.collection.children.unlink(c)
 
 # load objects into scene
+# reference CAD model
 bpy.ops.wm.ply_import(filepath=str(reference_model_path))
+bpy.context.object.name = f"ref_object-{name}"
 # bpy.ops.wm.ply_import(filepath=str(reconstruct_dense_path))
+# reconstructed mesh
 bpy.ops.wm.obj_import(filepath=str(reconstruct_mesh_path), up_axis="Z", forward_axis="Y")
+# reference plane
 bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align="WORLD", location=(0, 0, 0), scale=(1, 1, 1))
+bpy.context.object.name = f"plane_seafloor-{name}"
 
 # put cameras in a collection for organization
 camcollection = bpy.data.collections.new("ReconstructedCameras")
