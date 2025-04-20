@@ -16,7 +16,7 @@ import mathutils
 print("CURRENT WORKING DIRECTORY")
 print(os.getcwd())
 
-name = "dive10-barrel-03-47"
+name = "dive10-barrel-04-35"
 if "Scene" not in bpy.context.scene.name:
     raise ValueError("You forgot to change scenes idiot change it")
 bpy.context.scene.name = name
