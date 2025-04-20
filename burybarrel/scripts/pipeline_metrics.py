@@ -24,10 +24,14 @@ import yaml
 from bop_toolkit.bop_toolkit_lib.pose_error import vsd, mssd, mspd
 from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations
 from bop_toolkit.bop_toolkit_lib.renderer import create_renderer
+from bop_toolkit.bop_toolkit_lib import renderer_vispy
 
-from burybarrel import config
+from burybarrel import config, get_logger
 import burybarrel.colmap_util as cutil
 from burybarrel.image import render_v3d, imgs_from_dir
+
+
+logger = get_logger(__name__)
 
 
 @click.command()
@@ -80,18 +84,18 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
     allresdirs = list(filter(lambda x: x.is_dir(), resdir.glob("*")))
 
     resolution2renderer = {}
-    # renderer = create_renderer(1920, 875, renderer_type="vispy", mode="depth")
+    # renderer: renderer_vispy.RendererVispy = create_renderer(1920, 875, renderer_type="vispy", mode="depth")
     # for modelname in allobjectinfo.keys():
     #     renderer.add_object(modelname, objectdir / modelname)
 
     allestmetrics = []
     for singleresdir in tqdm.tqdm(allresdirs):
-        print(f"processing results for following dataset: {singleresdir}")
+        logger.info(f"processing results for following dataset: {singleresdir}")
         dataname = singleresdir.name
         singledatadir = datadir / dataname
         fitoutdir = singleresdir / "fit-output"
         if not fitoutdir.exists():
-            print(f"Skipping {dataname} because fit-output does not exist")
+            logger.info(f"Skipping {dataname} because fit-output does not exist")
             continue
 
         with open(singledatadir / "gt_obj2cam.json", "rt") as f:
@@ -108,7 +112,10 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             for modelname in allobjectinfo.keys():
                 newrenderer.add_object(modelname, objectdir / modelname)
             resolution2renderer[(w, h)] = newrenderer
-        renderer = resolution2renderer[(w, h)]
+        renderer: renderer_vispy.RendererVispy = resolution2renderer[(w, h)]
+        # lets multiple renderers exist
+        renderer.set_current()
+
         # gt masks (may not exist)
         masksdir = singledatadir / "mask"
         maskpaths = None
@@ -143,7 +150,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         vtxs = np.array(mesh.vertices)
 
         # raw foundpose metrics
-        print(f"evaluating raw foundpose results")
+        logger.info(f"evaluating raw foundpose results")
         posepath = singleresdir / "foundpose-output/inference/estimated-poses.json"
         with open(posepath, "rt") as f:
             ests = yaml.safe_load(f)
@@ -228,7 +235,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         # multiview fit metrics
         allfitdirs = list(filter(lambda x: x.is_dir(), fitoutdir.glob("*")))
         for fitdir in allfitdirs:
-            print(f"evaluating fitted results in {fitdir}")
+            logger.info(f"evaluating fitted results in {fitdir}")
             posepath = fitdir / "estimated-poses.json"
             estinfopath = fitdir / "reconstruction-info.json"
             with open(posepath, "rt") as f:
