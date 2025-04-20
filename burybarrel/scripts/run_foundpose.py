@@ -95,11 +95,9 @@ def _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device
         "PYTHONPATH": f"{repopath}:{repopath / 'external/bop_toolkit'}:{repopath / 'external/dinov2'}",
     }
     env = dict(os.environ, **envvars)
+    runcmd = [str(pythonbinpath), "scripts/pipeline.py", "--cfg", str(newcfgpath), "--gen-templates", "--gen-repre", "--infer"]
+    # runcmd = [str(pythonbinpath), "scripts/pipeline.py", "--cfg", str(newcfgpath), "--infer"]
     subprocess.run(
-        [str(pythonbinpath), "scripts/pipeline.py", "--cfg", str(newcfgpath), "--gen-templates", "--gen-repre", "--infer"],
+        runcmd,
         cwd=repopath, env=env, check=True
     )
-    # subprocess.run(
-    #     [str(pythonbinpath), "scripts/pipeline.py", "--cfg", str(newcfgpath), "--gen-repre", "--infer"],
-    #     cwd=repopath, env=env, check=True
-    # )
