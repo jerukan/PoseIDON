@@ -16,8 +16,10 @@ import mathutils
 print("CURRENT WORKING DIRECTORY")
 print(os.getcwd())
 
-name = "dive8-barrel-16-19"
+name = "dive9-barrel-04-07"
 if "Scene" not in bpy.context.scene.name:
+    # creating a new scene crashes my blender so...
+    # bpy.ops.scene.new(type="NEW")
     raise ValueError("You forgot to change scenes idiot change it")
 bpy.context.scene.name = name
 # reconstruction paths
