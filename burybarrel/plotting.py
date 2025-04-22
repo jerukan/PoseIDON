@@ -214,9 +214,11 @@ def get_carree_axis(domain=None, projection=None, land=False, fig=None, pos=None
     return fig, ax
 
 
-def get_carree_gl(ax):
+def get_carree_gl(ax, labels=True):
     gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
     gl.top_labels, gl.right_labels = (False, False)
+    if not labels:
+        gl.bottom_labels, gl.left_labels = (False, False)
     gl.xformatter = cartopy.mpl.gridliner.LONGITUDE_FORMATTER
     gl.yformatter = cartopy.mpl.gridliner.LATITUDE_FORMATTER
     return gl
