@@ -11,7 +11,7 @@ import yaml
 
 from burybarrel import get_logger
 from burybarrel.utils import denoise_nav_depth
-from burybarrel.image import apply_clahe, delete_imgs_in_dir
+from burybarrel.image import apply_clahe, delete_imgs_in_dir, combine_masks
 
 
 logger = get_logger(__name__)
@@ -120,7 +120,7 @@ def _get_footage_keyframes(
     step=None,
     navpath=None,
     crop=None,
-    maskpath=None,
+    maskpaths=None,
     fps=None,
     increase_contrast=None,
     denoise_depth=None,
@@ -155,8 +155,11 @@ def _get_footage_keyframes(
     bbox = crop
     
     mask = None
-    if maskpath is not None:
-        mask = cv2.imread(maskpath, cv2.IMREAD_GRAYSCALE)
+    if maskpaths is not None:
+        if not isinstance(maskpaths, (list, tuple, np.ndarray)):
+            maskpaths = [maskpaths]
+        masks = np.array([cv2.imread(maskpath, cv2.IMREAD_GRAYSCALE) for maskpath in maskpaths])
+        mask = combine_masks(masks)
 
     # these are the only things that need to get deleted
     # other info csv and json files will get overridden by the end

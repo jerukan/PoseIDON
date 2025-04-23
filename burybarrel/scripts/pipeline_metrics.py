@@ -24,7 +24,6 @@ import yaml
 from bop_toolkit.bop_toolkit_lib.pose_error import vsd, mssd, mspd
 from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations
 from bop_toolkit.bop_toolkit_lib.renderer import create_renderer
-from bop_toolkit.bop_toolkit_lib import renderer_vispy
 
 from burybarrel import config, get_logger
 import burybarrel.colmap_util as cutil
@@ -112,7 +111,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             for modelname in allobjectinfo.keys():
                 newrenderer.add_object(modelname, objectdir / modelname)
             resolution2renderer[(w, h)] = newrenderer
-        renderer: renderer_vispy.RendererVispy = resolution2renderer[(w, h)]
+        renderer = resolution2renderer[(w, h)]
         # lets multiple renderers exist
         renderer.set_current()
 

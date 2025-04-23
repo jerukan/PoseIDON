@@ -106,27 +106,38 @@ def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrit
         indir = Path(data_dir) / dsname
         outdir = Path(out_dir) / dsname
         success = False
+        # flag if colmap succeeded but openmvs failed
+        sparse_success_dense_fail = False
         logger.info(f"BEGINNING RECONSTRUCTION for dataset {dsname}")
-        for i in range(num_retries):
-            # note this has a tendency of segfaulting randomly, there is no feasible way to
+        nretries_data = num_retries
+        i = 0
+        while i < nretries_data:
+            # COLMAP has a tendency of segfaulting randomly, there is no feasible way to
             # catch and prevent this
+            sparse_iter = not sparse_success_dense_fail
             try:
                 if i == 0:
-                    _reconstruct_colmap(indir, outdir, sparse=sparse, dense=dense, overwrite=overwrite)
+                    _reconstruct_colmap(indir, outdir, sparse=sparse_iter, dense=dense, overwrite=overwrite)
                 else:
-                    _reconstruct_colmap(indir, outdir, sparse=sparse, dense=dense, overwrite=True)
+                    _reconstruct_colmap(indir, outdir, sparse=sparse_iter, dense=dense, overwrite=True)
                 success = True
                 logger.info(f"RECONSTRUCTION SUCCESS for dataset {dsname}")
                 break
-            except InvalidReconstructionError as e:
+            except InvalidCOLMAPError as e:
                 if i < num_retries - 1:
                     print(f"Failed to reconstruct dataset {dsname} due to error: {e}. Retrying.")
-                    continue
                 else:
                     print(f"Could not create proper reconstruction in dataset {dsname}: {e}")
+            except OpenMVSSigSegvError as e:
+                # OpenMVS randomly segfaults, but since we run it as a subprocess, we can
+                # catch it. This should work with enough tries, so this shouldn't count as
+                # a retry.
+                sparse_success_dense_fail = True
+                i -= 1
             except Exception as e:
                 print(f"Failed to reconstruct dataset {dsname} due to error: {e}")
                 print("This is probably some random memory error that happens uncontrollably, retry.")
+            i += 1
         if not success:
             logger.error(f"RECONSTRUCTION FAILURE to reconstruct dataset {dsname} after {num_retries} attempts")
             failures.append(dsname)
@@ -300,30 +311,36 @@ def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=Tr
         )
 
     if dense:
-        # dense reconstruction
-        ### openmvs code ###
-        # holy crap openmvs generates so many log files
-        for logpath in openmvs_out.glob("*.log"):
-            logpath.unlink()
-        mvs_rel = os.path.relpath(mvs_dir, openmvs_out)  # openmvs converts colmap stuff to relative paths
-        print(mvs_rel)
-        subprocess.run(["InterfaceCOLMAP", "-i", mvs_rel, "-o", "scene.mvs"], cwd=openmvs_out, check=True)
-        subprocess.run(["DensifyPointCloud", "scene.mvs"], cwd=openmvs_out, check=True)
-        # re-export dense point cloud since openmvs exports it in a format trimesh can't read
-        # openmvs exports ply in a format trimesh can't read
-        # trimesh exports ply in a format openmvs can't read (it segfaults ReconstructMesh)
-        # WTF?????????
-        load_mesh(openmvs_out / "scene_dense.ply").export(openmvs_out / "scene_dense_trimeshvalid.ply")
-        # these .dmap depth maps aren't needed after densifying, and they take a lot of space
-        for dmappath in openmvs_out.glob("*.dmap"):
-            dmappath.unlink()
-        subprocess.run(["ReconstructMesh", "scene_dense.mvs", "-p", "scene_dense.ply"], cwd=openmvs_out, check=True)
-        subprocess.run(["RefineMesh", "scene.mvs", "-m", "scene_dense_mesh.ply", "-o", "scene_dense_mesh_refine.mvs"], cwd=openmvs_out, check=True)
-        # export as obj since openmvs exports ply textures in a format blender can't read
-        subprocess.run(["TextureMesh", "scene_dense.mvs", "-m", "scene_dense_mesh_refine.ply", "-o", "scene_dense_mesh_refine_texture.mvs", "--export-type", "obj"], cwd=openmvs_out, check=True)
+        try:
+            # dense reconstruction
+            ### openmvs code ###
+            # holy crap openmvs generates so many log files
+            for logpath in openmvs_out.glob("*.log"):
+                logpath.unlink()
+            mvs_rel = os.path.relpath(mvs_dir, openmvs_out)  # openmvs converts colmap stuff to relative paths
+            print(mvs_rel)
+            subprocess.run(["InterfaceCOLMAP", "-i", mvs_rel, "-o", "scene.mvs"], cwd=openmvs_out, check=True)
+            subprocess.run(["DensifyPointCloud", "scene.mvs"], cwd=openmvs_out, check=True)
+            # re-export dense point cloud since openmvs exports it in a format trimesh can't read
+            # openmvs exports ply in a format trimesh can't read
+            # trimesh exports ply in a format openmvs can't read (it segfaults ReconstructMesh)
+            # WTF?????????
+            load_mesh(openmvs_out / "scene_dense.ply").export(openmvs_out / "scene_dense_trimeshvalid.ply")
+            # these .dmap depth maps aren't needed after densifying, and they take a lot of space
+            for dmappath in openmvs_out.glob("*.dmap"):
+                dmappath.unlink()
+            subprocess.run(["ReconstructMesh", "scene_dense.mvs", "-p", "scene_dense.ply"], cwd=openmvs_out, check=True)
+            subprocess.run(["RefineMesh", "scene.mvs", "-m", "scene_dense_mesh.ply", "-o", "scene_dense_mesh_refine.mvs"], cwd=openmvs_out, check=True)
+            # export as obj since openmvs exports ply textures in a format blender can't read
+            subprocess.run(["TextureMesh", "scene_dense.mvs", "-m", "scene_dense_mesh_refine.ply", "-o", "scene_dense_mesh_refine_texture.mvs", "--export-type", "obj"], cwd=openmvs_out, check=True)
+        except Exception as e:
+            raise OpenMVSSigSegvError("Segmentation fault during OpenMVS reconstruction") from e
 
 
-class InvalidReconstructionError(Exception):
+class InvalidCOLMAPError(Exception):
+    pass
+
+class OpenMVSSigSegvError(Exception):
     pass
 
 
@@ -334,7 +351,7 @@ def check_maps_valid(maps):
     Raises errors if 0 reconstructions are found or if no reconstruction has >2 registered images.
     """
     if len(maps) == 0:
-        raise InvalidReconstructionError("No valid sparse reconstruction from COLMAP.")
+        raise InvalidCOLMAPError("No valid sparse reconstruction from COLMAP.")
     reconstr_numreg = [rec.num_reg_images() for rec in maps.values()]
     if max(reconstr_numreg) <= 2:
-        raise InvalidReconstructionError("No reconstruction has >2 registered images.")
+        raise InvalidCOLMAPError("No reconstruction has >2 registered images.")

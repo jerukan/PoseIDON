@@ -309,3 +309,19 @@ def overlay_img_alpha(img: np.ndarray, overlay: np.ndarray, alpha=1.0, alpha_thr
     tooverlay[~overlaymask] = img[~overlaymask]
     out = cv2.addWeighted(img, 1 - alpha, tooverlay, alpha, 0)
     return out
+
+
+def combine_masks(masks):
+    """
+    Combines a list of masks into a single mask.
+
+    Args:
+        masks: nxhxw array of masks
+    
+    Returns:
+        combined: hxw
+    """
+    combined = np.zeros_like(masks[0])
+    for mask in masks:
+        combined = cv2.bitwise_or(combined, mask)
+    return combined
