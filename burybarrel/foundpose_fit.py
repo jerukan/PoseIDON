@@ -292,7 +292,10 @@ def fit_foundpose_multiview(
         burial_ratio_z = abs(zmin) / (abs(zmin) + zmax)
     slicedmesh = trimesh.intersections.slice_mesh_plane(meshzup, [0, 0, 1], [0, 0, 0], cap=True)
     burial_ratio_vol = 1 - slicedmesh.volume / objectmesh.volume
-    burial_depth = abs(zmin)
+    if zmin < 0:
+        burial_depth = abs(zmin)
+    else:
+        burial_depth = 0
 
     # visualization of fitted scene
     meshzuppts = v3d.Point3d(p=meshzup.vertices)
