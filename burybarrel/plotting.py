@@ -9,6 +9,7 @@ import matplotlib as mpl
 from matplotlib import cm
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
@@ -214,11 +215,15 @@ def get_carree_axis(domain=None, projection=None, land=False, fig=None, pos=None
     return fig, ax
 
 
-def get_carree_gl(ax, labels=True):
+def get_carree_gl(ax, labels=True, lat_interval=None, lon_interval=None):
     gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
     gl.top_labels, gl.right_labels = (False, False)
     if not labels:
         gl.bottom_labels, gl.left_labels = (False, False)
     gl.xformatter = cartopy.mpl.gridliner.LONGITUDE_FORMATTER
     gl.yformatter = cartopy.mpl.gridliner.LATITUDE_FORMATTER
+    if lat_interval is not None:
+        gl.ylocator = mticker.MultipleLocator(lat_interval)
+    if lon_interval is not None:
+        gl.xlocator = mticker.MultipleLocator(lon_interval)
     return gl
