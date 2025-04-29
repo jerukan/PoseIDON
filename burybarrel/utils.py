@@ -35,6 +35,18 @@ def add_to_json(data: Dict, path: Union[Path, str]):
         json.dump(jsondata, f, indent=4)
 
 
+def combine_path_tail(parent, tail, taillen: int):
+    """
+    Appends part of the tail of a path to a given parent.
+
+    Args:
+        taillen (int): number of parts starting from the tail to append from the parent
+    """
+    parent = Path(parent)
+    tail = Path(tail)
+    return parent / Path(*tail.parts[-taillen:])
+
+
 def ext_pattern(extension):
     """
     Because I want to use glob instead of looping through files.
