@@ -2,13 +2,19 @@ import click
 
 from burybarrel.scripts import (
     create_masks, reconstruct_colmap, reconstruct_dust3r, get_footage_keyframes, run_foundpose_fit,
-    run_foundpose, run_full_pipeline
+    run_foundpose, run_full_pipeline, run_full_pipelines, get_metrics, gt_from_blender
 )
 
 
 @click.group()
 def cli():
     pass
+
+
+@cli.command()
+@click.option("-i", "stuff", multiple=True)
+def test(stuff):
+    print(stuff)
 
 
 @cli.command()
@@ -33,6 +39,9 @@ cli.add_command(reconstruct_dust3r)
 cli.add_command(run_foundpose_fit)
 cli.add_command(run_foundpose)
 cli.add_command(run_full_pipeline)
+cli.add_command(run_full_pipelines)
+cli.add_command(get_metrics)
+cli.add_command(gt_from_blender)
 
 
 if __name__ == "__main__":

@@ -1,15 +1,21 @@
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
+import cartopy
+import cartopy.crs as ccrs
 import cv2
 import dataclass_array as dca
 import matplotlib as mpl
 from matplotlib import cm
+import matplotlib.patches as patches
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
+import plotly.figure_factory as ff
 import plotly.graph_objects as go
 from sklearn.neighbors import KDTree
 import torch
+import trimesh
 import visu3d as v3d
 
 
@@ -40,6 +46,34 @@ def get_surface_line_traces(
                 go.Scatter3d(x=xl, y=yl, z=zl, mode="lines", line=line_marker, name="")
             )
     return traces
+
+
+def get_plane_zup(pts, n=10, z=0, square_grid=False):
+    pts = np.array(pts)
+    xmin = np.min(pts[:, 0])
+    xmax = np.max(pts[:, 0])
+    ymin = np.min(pts[:, 1])
+    ymax = np.max(pts[:, 1])
+    xdiff = xmax - xmin
+    ydiff = ymax - ymin
+    nx, ny = n, n
+    if square_grid:
+        if xdiff > ydiff:
+            gridsize = xdiff / n
+            ny = int(ydiff // gridsize + 1)
+            diff = (ny * gridsize) - ydiff
+            ymin = ymin - diff / 2
+            ymax = ymax + diff / 2
+        else:
+            gridsize = ydiff / n
+            nx = int(xdiff // gridsize + 1)
+            diff = (nx * gridsize) - xdiff
+            xmin = xmin - diff / 2
+            xmax = xmax + diff / 2
+    xx, yy = np.meshgrid(np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny))
+    zz = np.zeros_like(xx)
+    zz.fill(z)
+    return xx, yy, zz
 
 
 def get_ray_trace(
@@ -99,3 +133,97 @@ def get_axes_traces(transform, scale=1.0, linewidth=1.0):
             get_ray_trace(singleorgn, z[i] - singleorgn, length=scale, width=linewidth, color=zcol)
         ])
     return traces
+
+
+def get_line3d_trace(
+    points, markersize=0, markercolor=None, markersymbol=None, linecolor=None, linewidth=1,
+):
+    return go.Scatter3d(
+        x=points[:, 0], y=points[:, 1], z=points[:, 2],
+        marker=dict(
+            size=markersize,
+            color=markercolor,
+            # colorscale='Viridis',
+            symbol=markersymbol,
+        ),
+        line=dict(
+            color=linecolor,
+            width=linewidth,
+        )
+    )
+
+
+def get_trimesh_traces(mesh: trimesh.Trimesh, surfcolor: str=None, wirecolor: str=None) -> Tuple[go.Mesh3d, go.Scatter3d]:
+    """
+    Gets the plotly traces for mesh surface and mesh wireframe by ripping them from
+    the figure made by figure factory.
+
+    Args:
+        surfcolor (str): single color for the mesh surface, either hex or rgb()/rgba() string
+        wirecolor (str): single color for wireframe
+    
+    Returns:
+        (mesh trace, wireframe trace)
+    """
+    if surfcolor is not None:
+        surfcolor = [surfcolor] * len(mesh.faces)
+    meshfig = ff.create_trisurf(
+        x=mesh.vertices[:, 0], y=mesh.vertices[:, 1], z=mesh.vertices[:, 2],
+        simplices=mesh.faces, color_func=surfcolor, show_colorbar=False
+    )
+    traces = list(meshfig.select_traces())
+    meshtrace: go.Mesh3d = traces[0]
+    wireframetrace: go.Scatter3d = traces[1]
+    if wirecolor is not None:
+        wireframetrace = wireframetrace.update({"line": {"color": wirecolor}})
+    return meshtrace, wireframetrace
+
+
+def generate_domain(lats, lons, padding=0):
+    """Will have funky behavior if the coordinate range loops around back to 0."""
+    lat_rng = (np.min(lats), np.max(lats))
+    lon_rng = (np.min(lons), np.max(lons))
+    return dict(
+        S=lat_rng[0] - padding,
+        N=lat_rng[1] + padding,
+        W=lon_rng[0] - padding,
+        E=lon_rng[1] + padding,
+    )
+
+
+def get_carree_axis(domain=None, projection=None, land=False, fig=None, pos=None):
+    """
+    Args:
+        fig: exiting figure to add to if desired
+        pos: position on figure subplots to add axes to
+    """
+    if projection is None:
+        projection = ccrs.PlateCarree()
+    if fig is None:
+        fig = plt.figure()
+    if pos is None:
+        pos = 111
+    if isinstance(pos, int):
+        ax = fig.add_subplot(pos, projection=projection)
+    else:
+        ax = fig.add_subplot(*pos, projection=projection)
+    if domain is not None:
+        ext = [domain["W"], domain["E"], domain["S"], domain["N"]]
+        ax.set_extent(ext, crs=projection)
+    if land:
+        ax.add_feature(cartopy.feature.COASTLINE)
+    return fig, ax
+
+
+def get_carree_gl(ax, labels=True, lat_interval=None, lon_interval=None):
+    gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True)
+    gl.top_labels, gl.right_labels = (False, False)
+    if not labels:
+        gl.bottom_labels, gl.left_labels = (False, False)
+    gl.xformatter = cartopy.mpl.gridliner.LONGITUDE_FORMATTER
+    gl.yformatter = cartopy.mpl.gridliner.LATITUDE_FORMATTER
+    if lat_interval is not None:
+        gl.ylocator = mticker.MultipleLocator(lat_interval)
+    if lon_interval is not None:
+        gl.xlocator = mticker.MultipleLocator(lon_interval)
+    return gl

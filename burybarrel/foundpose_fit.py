@@ -18,19 +18,18 @@ import yaml
 
 from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations
 
+from burybarrel import get_logger
 import burybarrel.colmap_util as cutil
 from burybarrel.image import render_v3d, render_models, to_contour, imgs_from_dir
 from burybarrel.plotting import get_axes_traces
 from burybarrel.camera import load_v3dcams
-from burybarrel.transform import icp, scale_T_translation, qangle, qmean, closest_quat_sym, get_axes_rot, T_from_translation
+from burybarrel.transform import icp, scale_T_translation, qangle, qmean, closest_quat_sym, get_axes_rot, T_from_translation, scale_cams
 from burybarrel.mesh import segment_pc_from_masks
 from burybarrel.estimators import ransac
 from burybarrel.utils import match_lists, invert_idxs
 
 
-def scale_cams(scale: float, cams: v3d.Camera):
-    T = cams.world_from_cam
-    return cams.replace(world_from_cam=scale_T_translation(T, scale))
+logger = get_logger(__name__)
 
 
 def variance_from_scale(scale, data):
@@ -145,6 +144,7 @@ def fit_foundpose_multiview(
     cams = cameras
     # names, cameras are already assumed to be ordered and filtered
     # depending on failed registration in COLMAP or SAM masks
+    # TODO: an image should not be exlucded for failed SAM, find a way to fix this
     name2cam = {name: cam for name, cam in zip(names, cameras)}
     # foundpose results are used as reference for image ids
     name2imgid = {}
@@ -180,11 +180,35 @@ def fit_foundpose_multiview(
     obj2cams = dca.stack(obj2cams)
     camhyps = dca.stack(camhyps)
 
-    model, inlieridxs = ransac(camhyps.world_from_cam.matrix4x4, obj2cams.matrix4x4, fit_func=fitcams, loss_func=camloss, cost_func=camcost, samp_min=5, inlier_min=5, inlier_thres=0.15, max_iter=50, seed=seed)
+    # this prevents a very strange error with einops
+    # Tensor type unknown to einops <class 'numpy.ndarray'>
+    # from the function: einops._backends.get_backend(tensor)
+    # the Transform.matrix4x4 just fails randomly like this (can't find numpy backend
+    # even though it's literally supported)
+    # why is the camera transform the only one with this problem?
+    # for some reason, just run it twice and it fixes itself???????
+    try:
+        camhyps.world_from_cam.matrix4x4
+    except Exception as e:
+        logger.info(f"einops error with backend, surely this exception block prevents it: {e}")
+
+    model, inlieridxs = ransac(
+        camhyps.world_from_cam.matrix4x4,
+        obj2cams.matrix4x4,
+        fit_func=fitcams,
+        loss_func=camloss,
+        cost_func=camcost,
+        samp_min=5,
+        inlier_min=5,
+        inlier_thres=0.15,
+        max_iter=50,
+        seed=seed,
+        relax_on_fail=True,
+    )
 
     scalefactor = model.scale
-    camscaled = scale_cams(scalefactor, cams)
-    camhypsscaled = scale_cams(scalefactor, camhyps)
+    camscaled = scale_cams(cams, scalefactor)
+    camhypsscaled = scale_cams(camhyps, scalefactor)
     obj2worlds = camhypsscaled.world_from_cam @ obj2cams
     obj2worldsinlier: v3d.Transform = obj2worlds[inlieridxs]
 
@@ -195,7 +219,7 @@ def fit_foundpose_multiview(
     floormask = np.ones(len(sceneptsscaled), dtype=bool)
     floormask[segidxs] = False
     plane1 = pyrsc.Plane()
-    best_eq, best_inliers = plane1.fit(sceneptsscaled[floormask].p, thresh=0.005)
+    best_eq, best_inliers = plane1.fit(sceneptsscaled[floormask].p, thresh=0.05)
     a, b, c, d = best_eq
     normal = np.array([a, b, c])
     R = get_axes_rot([0, 0, 1], normal)
@@ -237,7 +261,7 @@ def fit_foundpose_multiview(
             icpfig = v3d.make_fig(
                 [centT @ meshpts, centT @ meshicppts, centT @ sceneobjzuppts, centT @ sceneobjzupoutlierpts],
             num_samples_point3d=1000)
-            icpfig.write_image(icpdebugdir / f"icpout_{str(i).zfill(4)}.png")
+            icpfig.write_html(icpdebugdir / f"icpout_{str(i).zfill(4)}.html")
         obj2worldsinlier = dca.stack(tmpT)
 
     quatsinlier = quaternion.from_rotation_matrix(obj2worldsinlier.R)
@@ -253,7 +277,9 @@ def fit_foundpose_multiview(
 
     meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmeanransac), t=np.mean(obj2worldsinliersym.t, axis=0))
     quatfig = v3d.make_fig(*get_axes_traces(obj2worldsinliersym, scale=0.5), *get_axes_traces(meanT, linewidth=10))
-    quatfig.write_image(resdir / "quaternion_fit.png")
+    quatfig.update_layout(showlegend=False)
+    # quatfig.write_image(resdir / "quaternion_fit.png")
+    quatfig.write_html(resdir / "quaternion_fit.html")
 
     # burial ratio by fitting plane to floor point cloud
     T_zup = planeT.inv @ meanT
@@ -266,17 +292,23 @@ def fit_foundpose_multiview(
         burial_ratio_z = abs(zmin) / (abs(zmin) + zmax)
     slicedmesh = trimesh.intersections.slice_mesh_plane(meshzup, [0, 0, 1], [0, 0, 0], cap=True)
     burial_ratio_vol = 1 - slicedmesh.volume / objectmesh.volume
+    if zmin < 0:
+        burial_depth = abs(zmin)
+    else:
+        burial_depth = 0
 
     # visualization of fitted scene
     meshzuppts = v3d.Point3d(p=meshzup.vertices)
     scenezuppts = planeT.inv @ sceneptsscaled
     aggfig = v3d.make_fig([scenezuppts, meshzuppts, camzup])
-    aggfig.write_image(resdir / "scene-aggregate-fit.png")
+    aggfig.update_layout(showlegend=False)
+    # aggfig.write_image(resdir / "scene-aggregate-fit.png")
+    aggfig.write_html(resdir / "scene-aggregate-fit.html")
 
-    plane2cam = camscaled.world_from_cam.inv @ planeT[..., None]
+    plane2camfit = camscaled.world_from_cam.inv @ planeT[..., None]
     obj2camfit = camscaled.world_from_cam.inv @ meanT[..., None]
     estposes = []
-    for name, obj2cam in zip(names, obj2camfit):
+    for name, obj2cam, plane2cam in zip(names, obj2camfit, plane2camfit):
         posedata = {
             "img_path": str(name2imgpath[name]),
             "img_id": name2imgid[name],
@@ -287,7 +319,7 @@ def fit_foundpose_multiview(
             "t_floor": plane2cam.t.tolist(),
         }
         estposes.append(posedata)
-    return estposes, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z
+    return estposes, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z, burial_depth
 
 
 def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None, device=None):
@@ -335,7 +367,7 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
     with open(foundpose_res_path, "rt") as f:
         foundpose_res = yaml.safe_load(f)
     
-    results, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z = fit_foundpose_multiview(
+    results, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z, burial_depth = fit_foundpose_multiview(
         foundpose_res,
         filtnames,
         filtcams,
@@ -348,7 +380,7 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
         seed=seed,
         resdir=estimate_dir
     )
-    camscaled = scale_cams(scalefactor, filtcams)
+    camscaled = scale_cams(filtcams, scalefactor)
 
     overlaydir = estimate_dir / f"fit-overlays"
     overlaydir.mkdir(exist_ok=True)
@@ -367,6 +399,7 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
         "scalefactor": scalefactor,
         "burial_ratio_vol": burial_ratio_vol,
         "burial_ratio_z": burial_ratio_z,
+        "burial_depth": burial_depth,
         "obj2world": meanT.matrix4x4.tolist(),
         "use_coarse": use_coarse,
         "use_icp": use_icp

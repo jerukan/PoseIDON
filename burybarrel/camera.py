@@ -30,6 +30,14 @@ class RadialCamera(v3d.PinholeCamera):
 
     k1k2: FloatArray["*shape 2"] = (0.0, 0.0)
 
+    @classmethod
+    def from_jsonargs(cls, fx, fy, cx, cy, k1, k2, height, width):
+        return cls(
+            K=np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]]),
+            resolution=(height, width),
+            k1k2=(k1, k2),
+        )
+
     def _px_and_depth_from_cam(
         self,
         points3d,
@@ -73,11 +81,6 @@ class RadialCamera(v3d.PinholeCamera):
         return points3d
 
 
-def scale_cams(scale: float, cams: v3d.Camera):
-    T = cams.world_from_cam
-    return cams.replace(world_from_cam=scale_T_translation(T, scale))
-
-
 def save_v3dcams(cams: v3d.Camera, imgpaths: List[Union[str, Path]], outpath: Union[str, Path], format="json"):
     """
     {
@@ -117,7 +120,7 @@ def save_v3dcams(cams: v3d.Camera, imgpaths: List[Union[str, Path]], outpath: Un
     return camposedata
 
 
-def load_v3dcams(path, img_parent=None) -> Tuple[RadialCamera, List[Path]]:
+def load_v3dcams(path, img_parent=None) -> Tuple[v3d.Camera, List[Path]]:
     """
     JSON fields:
     ```

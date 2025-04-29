@@ -8,7 +8,44 @@ from numpy.typing import NDArray
 import quaternion
 from sklearn.neighbors import KDTree
 import torch
+import transforms3d as t3d
 import visu3d as v3d
+
+from burybarrel import get_logger
+
+
+logger = get_logger(__name__)
+
+
+def apply_T_xyz(xx: np.ndarray, yy: np.ndarray, zz: np.ndarray, T: v3d.Transform):
+    """
+    Applies a transform to x, y, z coordinates with arbitrary shape.
+    """
+    original_shape = xx.shape
+    pts = np.array([xx.reshape(-1), yy.reshape(-1), zz.reshape(-1)]).T
+    pts = T @ pts
+    xx = pts[:, 0].reshape(original_shape)
+    yy = pts[:, 1].reshape(original_shape)
+    zz = pts[:, 2].reshape(original_shape)
+    return xx, yy, zz
+
+
+def T_from_blender(Reuler, t, scale=1) -> v3d.Transform:
+    """
+    Converts Blender translation and euler angle rotation to a 4x4 v3d Transform.
+
+    Args:
+        Reuler: a euler angle rotation [x, y, z] in degrees (sxyz order)
+        t: [x, y, z] translation
+        scale: multiply translation by 1 / scale
+    """
+    R = t3d.euler.euler2mat(*(np.array(Reuler).reshape(3) * np.pi / 180))
+    t = np.array(t) * (1 / scale)
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3] = t
+    T = v3d.Transform.from_matrix(T)
+    return T
 
 
 def scale_T_translation(T: v3d.Transform, scale) -> v3d.Transform:
@@ -16,11 +53,25 @@ def scale_T_translation(T: v3d.Transform, scale) -> v3d.Transform:
     return T.replace(t=T.t * scale)
 
 
-def T_from_translation(*translation):
+def T_from_translation(*translation) -> v3d.Transform:
+    """
+    Converts a translation vector to a 4x4 v3d Transform.
+
+    Args:
+        translation: a single translation [x, y, z]
+    """
     translation = np.array(translation).reshape(3)
     T = np.eye(4)
     T[:3, 3] = translation
     return v3d.Transform.from_matrix(T)
+
+
+def scale_pc(pc: v3d.Point3d, scale) -> v3d.Point3d:
+    return pc.replace(p=pc.p * scale)
+
+
+def scale_cams(cams: v3d.Camera, scale) -> v3d.Camera:
+    return cams.replace(world_from_cam=scale_T_translation(cams.world_from_cam, scale))
 
 
 def qangle(q1: quaternion.quaternion, q2: quaternion.quaternion) -> float:
@@ -41,8 +92,10 @@ def qmean(qs: NDArray[quaternion.quaternion], weights: List[float]=None) -> quat
         weights = np.ones(len(qs))
     qs = np.squeeze(qs)
     Q = quaternion.as_float_array(qs * weights).T
+    # symmetric real matrix, and PSD
     QQ = Q @ Q.T
-    vals, vecs = np.linalg.eig(QQ)
+    # eigh should prevent complex eigenvectors from being selected, I think
+    vals, vecs = np.linalg.eigh(QQ)
     avg = vecs[:, np.argmax(np.abs(vals))]
     avg = avg / np.linalg.norm(avg)
     return quaternion.from_float_array(avg)

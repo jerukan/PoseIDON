@@ -6,27 +6,66 @@ import cv2
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import traceback
 import yaml
 
+from burybarrel import get_logger
 from burybarrel.utils import denoise_nav_depth
-from burybarrel.image import apply_clahe
+from burybarrel.image import apply_clahe, delete_imgs_in_dir, combine_masks
+
+
+logger = get_logger(__name__)
+DEFAULT_CFG_PATH = Path("configs/footage.yaml")
 
 
 @click.command()
-@click.option("-c", "--config", "cfg_path", required=False, type=click.Path(exists=True, dir_okay=False), help="video informaton yaml file")
-@click.option("-n", "--name", "name", required=False, type=click.STRING, help="name of data in the yaml config")
-def get_footage_keyframes(cfg_path, name):
+@click.option(
+    "-c",
+    "--config",
+    "cfg_path",
+    default=DEFAULT_CFG_PATH,
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    show_default=True,
+    help="video informaton yaml file"
+)
+@click.option(
+    "-n",
+    "--name",
+    "names",
+    required=True,
+    type=click.STRING,
+    help="All names of data in the yaml config. Use 'all' to run all datasets in the config",
+    multiple=True
+)
+@click.option(
+    "--overwrite",
+    "overwrite",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Overwrite existing image/data in corresponding output directories, otherwise skip"
+)
+def get_footage_keyframes(cfg_path, names, overwrite):
     with open(cfg_path, "rt") as f:
         cfg_all = yaml.safe_load(f)
     defaults = cfg_all["default"]
-    cfg = cfg_all[name]
-    
-    # what am i doing with my life
-    cfg_in = {
-        **defaults,
-        **cfg,
-    }
-    _get_footage_keyframes(**cfg_in)
+    if "all" in [n.lower() for n in names]:
+        names = list(cfg_all.keys())
+        names.remove("default")
+    for name in names:
+        cfg = cfg_all[name]
+        
+        cfg_in = {
+            **defaults,
+            **cfg,
+            "overwrite": overwrite,
+        }
+        try:
+            _get_footage_keyframes(**cfg_in)
+        except Exception as e:
+            logger.error(f"ERROR PROCESSING {name}: {e}\n{traceback.format_exc()}")
+            continue
 
 
 @click.command()
@@ -39,7 +78,10 @@ def get_footage_keyframes(cfg_path, name):
 )
 @click.option("--step", "step", required=True, type=click.INT, help="Number of frames between each image")
 @click.option(
-    "--crop/--no-crop", "crop", is_flag=True, default=True, show_default=True, type=click.BOOL
+    "--crop", "crop", default=False, type=click.STRING, help="4 integers separated by commas: top left x, top left y, width, height"
+)
+@click.option(
+    "--mask", "maskpath", required=False, type=click.Path(exists=True, dir_okay=False), help="path to mask"
 )
 @click.option(
     "--contrast",
@@ -61,6 +103,12 @@ def get_footage_keyframes(cfg_path, name):
 def get_footage_keyframes_cmd_old(
     **kwargs
 ):
+    if "crop" in kwargs:
+        croparg = kwargs["crop"]
+        if croparg is not None:
+            if croparg.count(",") != 3:
+                raise ValueError("crop argument must have 4 values separated by commas")
+            kwargs["crop"] = [int(x) for x in croparg.split(",")]
     _get_footage_keyframes(**kwargs)
 
 
@@ -72,28 +120,55 @@ def _get_footage_keyframes(
     step=None,
     navpath=None,
     crop=None,
+    maskpaths=None,
     fps=None,
     increase_contrast=None,
     denoise_depth=None,
     object_name=None,
+    description=None,
+    overwrite=False,
 ):
     """
     Retrieves keyframes from a video at specified intervals.
 
+    Order of operations is contrast -> mask -> crop
+
     Args:
         output_dir: default is parent directory of video
+        crop: [top left x, top left y, width, height]
         fps: videos are at 25 fps
     """
     vidpath = Path(input_path)
     if output_dir is None:
         outdir = vidpath.parent / vidpath.stem
     else:
-        outdir = Path(output_dir)
+        outdir = Path(output_dir) / vidpath.stem
+    if not overwrite:
+        # info.json is the last thing to be written, so it indicates data there is complete
+        if (outdir / "info.json").exists():
+            logger.info(f"Output directory {outdir} already has complete keyframes + metadata, skipping")
+            return
+    rawdir = outdir / "unprocessed"
     imgdir = outdir / "rgb"
     # top left x, y, width, height
-    bbox = [0, 120, 1920, 875]
+    # bbox = [0, 120, 1920, 875]
+    bbox = crop
+    
+    mask = None
+    if maskpaths is not None:
+        if not isinstance(maskpaths, (list, tuple, np.ndarray)):
+            maskpaths = [maskpaths]
+        masks = np.array([cv2.imread(maskpath, cv2.IMREAD_GRAYSCALE) for maskpath in maskpaths])
+        mask = combine_masks(masks)
 
+    # these are the only things that need to get deleted
+    # other info csv and json files will get overridden by the end
+    if imgdir.exists():
+        delete_imgs_in_dir(imgdir)
+    if rawdir.exists():
+        delete_imgs_in_dir(rawdir)
     imgdir.mkdir(parents=True, exist_ok=True)
+    rawdir.mkdir(parents=True, exist_ok=True)
     vid = cv2.VideoCapture(str(vidpath))
     nframes = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -107,20 +182,23 @@ def _get_footage_keyframes(
             # video ended before expected number of frames
             print("Video ended before expected number of frames")
             break
+        fname = f"frame{str(cnt).zfill(4)}.png"
+        cv2.imwrite(str(rawdir / fname), frame)
         if increase_contrast:
             frame = apply_clahe(frame, clipLimit=2.0, tileGridSize=(8, 8))
+        if mask is not None:
+            frame = cv2.inpaint(frame, mask, 3, cv2.INPAINT_TELEA)
         if crop:
             cropped = frame[bbox[1] : bbox[1] + bbox[3], bbox[0] : bbox[0] + bbox[2]]
-            fname = f"cropped{str(cnt).zfill(4)}.png"
         else:
             cropped = frame
-            fname = f"uncropped{str(cnt).zfill(4)}.png"
         fnames.append(fname)
         cv2.imwrite(str(imgdir / fname), cropped)
         cnt += 1
 
     infodict = {
-        "object_name": "placeholder.ply" if object_name is None else object_name
+        "object_name": "placeholder.ply" if object_name is None else object_name,
+        "description": "" if description is None else description,
     }
 
     if navpath is not None:

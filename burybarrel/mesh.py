@@ -82,3 +82,23 @@ def segment_pc_from_masks(pc: Union[v3d.Point3d, np.ndarray], masks: np.ndarray,
         scores[segidxs] += 1
     scores_valid = scores > min_ratio * v3dcams.size
     return np.arange(pc.size)[scores_valid]
+
+
+def subdivide_mesh(mesh: trimesh.Trimesh, nloops: int=1) -> trimesh.Trimesh:
+    currvertices = mesh.vertices
+    currfaces = mesh.faces
+    for _ in range(nloops):
+        currvertices, currfaces = trimesh.remesh.subdivide(currvertices, currfaces)
+    newmesh = mesh.copy()
+    newmesh.vertices = currvertices
+    newmesh.faces = currfaces
+    return newmesh
+
+
+def recolor_mesh(mesh: trimesh.Trimesh, color) -> trimesh.Trimesh:
+    """
+    Sets all vertex colors of a mesh to a single color.
+    """
+    newmesh = mesh.copy()
+    newmesh.visual = trimesh.visual.color.ColorVisuals(vertex_colors=color, mesh=newmesh)
+    return newmesh

@@ -17,7 +17,11 @@ import trimesh
 import visu3d as v3d
 import yaml
 
+from burybarrel import get_logger
 from burybarrel.utils import ext_pattern
+
+
+logger = get_logger(__name__)
 
 
 def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False, grayscale=False) -> Tuple[List[Path], Union[np.ndarray, List[Image.Image]]]:
@@ -54,6 +58,23 @@ def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False, grayscal
         else:
             imgs = [img.convert("RGB") for img in imgs]
     return imgpaths, imgs
+
+
+def delete_imgs_in_dir(imgdir, patterns=None):
+    """
+    Deletes all images in a directory but not the directory itself.
+    """
+    if patterns is None:
+        patterns = [ext_pattern("png"), ext_pattern("jpg"), ext_pattern("jpeg")]
+    imgdir = Path(imgdir)
+    if not imgdir.exists():
+        raise FileNotFoundError(f"Directory {imgdir} not found.")
+    nimgs = 0
+    for pattern in patterns:
+        for imgpath in imgdir.glob(pattern):
+            imgpath.unlink()
+            nimgs += 1
+    logger.info(f"Deleted {nimgs} images in {imgdir}.")
 
 
 def get_bbox_mask(bbox, W, H):
@@ -169,16 +190,27 @@ def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1, background=None) 
     return img
 
 
-def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.Trimesh]], transforms: v3d.Transform, light_intensity=2.4, flags=pyrender.RenderFlags.NONE, device=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def render_models(
+    cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.Trimesh]],
+    transforms: v3d.Transform, light_intensity=2.4, flags=pyrender.RenderFlags.NONE, device=None,
+    bg_color=None, wireframe=False,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Renders meshes in given poses for a given camera view.
+
+    Args:
+        cam: single visu3d camera (in optical frame coordinates, points towards +z)
+        meshes: list of trimesh meshes
+        transforms: list of world transforms for each mesh
 
     Returns:
         (np.ndarray, np.ndarray, np.ndarray): uint8 color (hxwh3), depth (hxw), mask (hxw)
     """
     if torch.cuda.is_available():
+        # TODO not sure if this will have consistent behavior when multithreading
         os.environ["PYOPENGL_PLATFORM"] = "egl"
         if device is not None:
+            # specifies device for pyrender
             if ":" in device:
                 devicenum = device.split(":")[1]
                 os.environ["EGL_DEVICE_ID"] = devicenum
@@ -193,15 +225,22 @@ def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.T
     )
     if isinstance(meshes, trimesh.Geometry):
         meshes = [meshes]
-    if isinstance(transforms, list):
+    if not isinstance(transforms, v3d.Transform):
+        # probably a list or array of transforms
         transforms = dca.stack(transforms)
     transforms = transforms.reshape((-1,))
-    pyrendermeshes = [pyrender.Mesh.from_trimesh(mesh) for mesh in meshes]
+    pyrendermeshes = []
+    if isinstance(wireframe, bool):
+        wireframe = [wireframe] * len(meshes)
+    for mesh, iswireframe in zip(meshes, wireframe):
+        pyrendermeshes.append(pyrender.Mesh.from_trimesh(mesh, wireframe=iswireframe))
     camrot = v3d.Transform.from_angle(x=np.pi, y=0, z=0)
     oglcamT: v3d.Transform = cam.world_from_cam @ camrot
 
     ambient_light = np.array([0.02, 0.02, 0.02, 1.0])
-    scene = pyrender.Scene(bg_color=np.zeros(4), ambient_light=ambient_light)
+    if bg_color is None:
+        bg_color = np.zeros(4)
+    scene = pyrender.Scene(bg_color=bg_color, ambient_light=ambient_light)
     meshnodes = []
     for pyrendermesh, transform in zip(pyrendermeshes, transforms):
         meshnode = pyrender.Node(mesh=pyrendermesh, matrix=transform.matrix4x4)
@@ -221,7 +260,8 @@ def render_models(cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.T
     color, depth = renderer.render(scene, flags=flags)
     mask = depth > 0
     renderer.delete()
-    return color, depth, mask
+    # color is readonly for some reason, I assume the others are as well
+    return np.copy(color), np.copy(depth), np.copy(mask)
 
 
 def to_contour(img: np.ndarray, color=(255, 255, 255), dilate_iterations=1, outline_only=False, background=None):
@@ -254,3 +294,34 @@ def to_contour(img: np.ndarray, color=(255, 255, 255), dilate_iterations=1, outl
     img_contour[canny > 0] = color
 
     return img_contour
+
+
+def overlay_img_alpha(img: np.ndarray, overlay: np.ndarray, alpha=1.0, alpha_thresh=0):
+    """
+    Overlays and image with alpha channel on top of another image.
+    """
+    if img.shape[2] != 4:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
+    if overlay.shape[2] != 4:
+        overlay = cv2.cvtColor(overlay, cv2.COLOR_RGB2RGBA)
+    overlaymask = overlay[..., 3] > alpha_thresh
+    tooverlay = np.copy(overlay)
+    tooverlay[~overlaymask] = img[~overlaymask]
+    out = cv2.addWeighted(img, 1 - alpha, tooverlay, alpha, 0)
+    return out
+
+
+def combine_masks(masks):
+    """
+    Combines a list of masks into a single mask.
+
+    Args:
+        masks: nxhxw array of masks
+    
+    Returns:
+        combined: hxw
+    """
+    combined = np.zeros_like(masks[0])
+    for mask in masks:
+        combined = cv2.bitwise_or(combined, mask)
+    return combined

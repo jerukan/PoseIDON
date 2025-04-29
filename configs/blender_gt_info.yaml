@@ -1,67 +1,333 @@
 # manually find these world coordinates from Blender
 # the rotations are in XYZ EULER COORDINATES IN DEGREES because that's Blender default
 # floor transform is how the plane normal is transformed from [0, 0, 1] originating from [0, 0, 0]
+empty:
+  scalefactor: 
+  t: []
+  R: []
+  t_floor: []
+  R_floor: []
 barrelddt1:
   scalefactor: 3.9878
   t: [-0.701382, -0.791855, 15.4895]
   R: [135.421, 0, 0]
   t_floor: [0, -4.98571, 22.4477]
   R_floor: [136.25, 0, 0]
-  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
-  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrelddt1/colmap-out/cam_poses.json
 barrel1:
   scalefactor: 3.24325
   t: [4.3207, -3.64466, 15.5349]
   R: [30.0863, 108.677, 88.7728]
   t_floor: [0.02068, -1.00226, 13.0383]
   R_floor: [178.023, 43.9048, 85.4291]
-  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
-  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel1/colmap-out/cam_poses.json
 barrel2:
   scalefactor: 2.48946
   t: [-3.65472, -1.80495, 12.9438]
   R: [33.9378, -11.8677, 9.23124]
   t_floor: [-3.40572, 0.489393, 10.292]
   R_floor: [-126.795, 16.6376, -182.816]
-  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
-  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel2/colmap-out/cam_poses.json
 barrel4:
   scalefactor: 1.37754
   t: [-4.55717, 0.819263, 5.44976]
   R: [-47.1032, 2.50546, -28.3796]
   t_floor: [-4.27908, 1.2127, 5.41424]
   R_floor: [144.381, 1.00439, 5.28746]
-  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
-  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/barrel4/colmap-out/cam_poses.json
 dive8-barrel-10-24:
   scalefactor: 3.65631
   t: [-0.864884, -0.657604, 15.6834]
   R: [40.0963, -0.663172, 0.247091]
   t_floor: [-0.019953, 0.616053, 14.5941]
   R_floor: [130.652, -0.08661, 0.202822]
-  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
-  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive8-barrel-10-24/colmap-out/cam_poses.json
 dive8-barrel-10-45:
   scalefactor: 2.03957
   t: [-1.60827, 1.98396, 7.25832]
   R: [28.229, -43.2686, -11.8863]
   t_floor: [-1.72063, 1.94468, 7.31659]
   R_floor: [247.071, 48.9464, 174.596]
-  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/barrelsingle-scaled.ply
-  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive8-barrel-10-45/colmap-out/cam_poses.json
+dive8-barrel-10-49:
+  scalefactor: 0.944933
+  t: [-2.37612, 1.45537, 2.61495]
+  R: [39.6537, 2.05365, 3.47124]
+  t_floor: [-2.32234, 1.58608, 2.52615]
+  R_floor: [119.196, 0, 0]
+dive8-barrel-10-56:
+  scalefactor: 2.40416
+  t: [-2.89226, 2.14863, 9.20598]
+  R: [22.2058, 46.8693, 29.6303]
+  t_floor: [-2.85262, 2.8471, 8.19972]
+  R_floor: [139.401, 47.04, 44.5343]
+dive8-barrel-11-04:
+  scalefactor: 3.95403
+  t: [-0.663368, 0.089699, 11.5603]
+  R: [41.2063, 29.968, 23.9451]
+  t_floor: [-0.709312, 1.29809, 10.8988]
+  R_floor: [123.207, 25.7305, 19.2879]
+dive8-barrel-11-12:
+  scalefactor: 2.3444
+  t: [-5.84137, 1.15568, 6.6175]
+  R: [-234.526, 67.6841, -281.598]
+  t_floor: [-6.36389, 1.7351, 6.14375]
+  R_floor: [112.876, 0, 0]
+dive8-barrel-11-21:
+  scalefactor: 1.27275
+  t: [-3.38594, 0.369116, 3.81562]
+  R: [26.358, 15.9959, 7.03949]
+  t_floor: [-3.47418, 0.445686, 3.63672]
+  R_floor: [119.733, 22.7924, 8.21015]
+dive8-barrel-11-33:
+  scalefactor: 1.90538
+  t: [3.96521, 1.45007, 5.8831]
+  R: [46.1764, -19.8769, -17.9862]
+  t_floor: [3.58027, 1.34136, 5.94023]
+  R_floor: [136.051, -26.9939, -15.9371]
+dive8-barrel-12-55:
+  scalefactor: 1.34225
+  t: [2.23123, 2.49884, 4.06184]
+  R: [71.3303, -8.54883, 192.413]
+  t_floor: [2.32197, 2.6557, 4.58934]
+  R_floor: [209.649, -64.9097, -124.233]
+dive8-barrel-13-07:
+  scalefactor: 29.0813
+  t: [17.0733, 10.7522, 100.76]
+  R: [15.4492, 0.291911, -29.0813]
+  t_floor: [17.3917, 16.4356, 102.901]
+  R_floor: [106.726, 0.198211, -28.469]
+dive8-barrel-13-08:
+  scalefactor: 1.46604
+  t: [-0.44066, -0.783915, 10.4965]
+  R: [-88.8103, -39.6501, 89.6087]
+  t_floor: [-0.365107, -0.69786, 10.4279]
+  R_floor: [138.407, 0.557532, -0.494858]
+dive8-barrel-13-15:
+  scalefactor: 2.29225
+  t: [1.86577, 1.07869, 10.8966]
+  R: [-57.5798, -5.78336, 9.01542]
+  t_floor: [1.91114, 1.61186, 10.9028]
+  R_floor: [119.924, 0, 0]
+dive8-barrel-13-57:
+  scalefactor: 2.00181
+  t: [0.422384, 2.10653, 6.18925]
+  R: [435.72, 109.843, 256.293]
+  t_floor: [0.002646, 2.02115, 6.62597]
+  R_floor: [109.174, -3.67372, 1.36767]
+dive8-barrel-14-05:
+  scalefactor: 0.928331
+  t: [2.50499, 2.60967, 1.7729]
+  R: [9.94997, -63.7044, 2.95618]
+  t_floor: [2.47623, 2.72262, 1.84456]
+  R_floor: [124.166, -66.549, -20.6367]
+dive8-barrel-14-29:
+  scalefactor: 1.45831
+  t: [-1.60353, 1.54541, 7.40446]
+  R: [-30.8093, 16.5201, -9.62409]
+  t_floor: [-1.56063, 1.48009, 7.75345]
+  R_floor: [-219.659, 7.17752, 12.7529]
+dive8-barrel-14-32:
+  scalefactor: 1.89141
+  t: [-3.74124, 3.18325, 5.62416]
+  R: [-95.0077, -172.286, 9.56197]
+  t_floor: [-3.73525, 3.47423, 5.95944]
+  R_floor: [168.096, 61.4991, 82.2813]
+dive8-barrel-15-04:
+  scalefactor: 1.05997
+  t: [0.634685, 2.37005, 1.83845]
+  R: [-82.2478, -8.37459, 216.17]
+  t_floor: [0.737599, 2.59525, 1.91283]
+  R_floor: [140.047, -41.9309, -30.6903]
 dive3-depthcharge-03-04:
   scalefactor: 3.40655
   t: [-0.078446, 2.68722, 15.8649]
   R: [-147.863, -20.7501, 98.8496]
   t_floor: [-0.013405, 2.56057, 15.968]
   R_floor: [229.375, 48.6395, 163.668]
-  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/depth_charge_mark_9_mod_1-scaled.ply
-  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-depthcharge-03-04/colmap-out/cam_poses.json
 dive3-mousetrap-13-10:
   scalefactor: 16.8977
   t: [-1.0275, 2.88686, 71.5575]
   R: [-47.1332, -14.2211, -12.845]
   t_floor: [-1.14614, -2.18094, 66.6043]
   R_floor: [128.75, 0.467325, -0.537551]
-  model_path: /Users/jerry/Projects/ms-stuff/barrel-playground/models3d/mousetrap-scaled.ply
-  camposes_path: /Users/jerry/Projects/ms-stuff/barrel-playground/barrels/results/dive3-mousetrap-13-10/colmap-out/cam_poses.json
+dive8-barrel-14-51:
+  scalefactor: 1.02292
+  t: [0.22035, 1.9288, 3.92685]
+  R: [75.6607, 27.9303, -35.3913]
+  t_floor: [0.405027, 2.30038, 3.8618]
+  R_floor: [109.896, 0, 0]
+dive8-barrel-15-09-02:
+  scalefactor: 5.41318
+  t: [-0.750193, 1.63676, 16.7111]
+  R: [42.6377, 11.1714, 17.4946]
+  t_floor: [-1.2197, 1.74031, 16.5324]
+  R_floor: [201.503, 51.214, 119.381]
+dive3-depthcharge-05-11:
+  scalefactor: 9.13049
+  t: [-3.08715, 4.35487, 22.5281]
+  R: [-98.6462, 12.598, -92.2444]
+  t_floor: [-2.38369, 4.37846, 21.5814]
+  R_floor: [102.58, 16.5928, 4.57543]
+dive10-barrel-23-35:
+  scalefactor: 2.54055
+  t: [2.09862, -0.198923, 9.95452]
+  R: [-68.6794, 15.8964, -1.36897]
+  t_floor: [2.07042, 0.649395, 10.6159]
+  R_floor: [-241.281, 5.39071, -9.46549]
+dive10-barrel-03-40:
+  scalefactor: 5.77344
+  t: [-0.80619, -0.65573, 26.7837]
+  R: [232.289, -2.39252, 181.44]
+  t_floor: [-0.269768, 0.33882, 27.5253]
+  R_floor: [-236.52, -3.59896, -2.47003]
+dive10-barrel-03-43:
+  scalefactor: 3.69131
+  t: [-2.90737, 1.30097, 15.557]
+  R: [92.0282, 40.587, -90.4479]
+  t_floor: [-2.68361, 0.999072, 15.6834]
+  R_floor: [119.077, -0.785568, 1.10061]
+dive10-barrel-03-44:
+  scalefactor: 1.0736
+  t: [-1.1183, 1.34129, 2.43218]
+  R: [30.1625, -22.0881, -9.55546]
+  t_floor: [-0.602474, 1.4145, 2.3837]
+  R_floor: [119.593, -1.02021, 1.79572]
+dive10-barrel-03-47:
+  scalefactor: 1.40093
+  t: [-1.22305, 0.692305, 5.2713]
+  R: [105.897, 57.4749, 100.847]
+  t_floor: [-1.59449, 0.624963, 5.53626]
+  R_floor: [123.279, 5.47031, 3.64433]
+dive10-barrel-03-55:
+  scalefactor: 1.58661
+  t: [1.06176, 1.21978, 5.8563]
+  R: [28.2351, 21.6249, 7.80472]
+  t_floor: [1.39083, 1.10638, 6.33623]
+  R_floor: [118.069, 17.5387, 10.7187]
+dive10-barrel-04-35:
+  scalefactor: 1.83668
+  t: [1.33313, 1.47584, 7.17919]
+  R: [82.9687, -14.6502, 88.9118]
+  t_floor: [1.20223, 1.5504, 7.38352]
+  R_floor: [110.46, -10.0582, -1.58243]
+dive8-barrel-15-09-43:
+  scalefactor: 1.44429
+  t: [-1.29981, 0.0647302, 6.64701]
+  R: [49.8604, -30.2495, -33.2661]
+  t_floor: [-1.28527, 0.0715357, 6.88541]
+  R_floor: [140.227, 34.1124, 32.5661]
+dive8-barrel-15-14:
+  scalefactor: 2.98488
+  t: [-6.04802, -0.803088, 9.69114]
+  R: [64.0834, 27.8034, -55.1314]
+  t_floor: [-6.03414, -0.261135, 9.57921]
+  R_floor: [127.296, 23.2529, 51.4124]
+dive8-barrel-15-19-49:
+  scalefactor: 1.07017
+  t: [-1.59304, 1.92695, 4.18903]
+  R: [66.5319, 35.3762, 15.5491]
+  t_floor: [-1.80962, 2.13075, 4.05908]
+  R_floor: [123.812, 26.969, 16.8954]
+dive8-barrel-15-24:
+  scalefactor: 0.732516
+  t: [-0.370789, 1.89988, 3.00734]
+  R: [-65.807, -59.9779, 285.623]
+  t_floor: [-0.3695, 1.97414, 3.10123]
+  R_floor: [121.331, -0, 0]
+dive8-barrel-15-50:
+  scalefactor: 1.98784
+  t: [3.73667, 1.9256, 11.5495]
+  R: [48.9084, -0.631463, 5.01506]
+  t_floor: [3.68737, 2.33395, 11.7304]
+  R_floor: [140.114, 0.0748053, 8.04862]
+dive8-barrel-16-07:
+  scalefactor: 2.92843
+  t: [2.62689, 0.858238, 16.2874]
+  R: [37.3253, -23.2176, -11.0624]
+  t_floor: [2.36108, 1.38466, 16.5804]
+  R_floor: [124.955, -21.3577, -8.90627]
+dive8-barrel-16-09:
+  scalefactor: 3.42435
+  t: [-5.61158, 0.579595, 17.7582]
+  R: [-37.543, 12.0068, -58.5616]
+  t_floor: [-5.68036, 0.776689, 18.1818]
+  R_floor: [135.539, -1.66322, 1.63155]
+dive8-barrel-16-18:
+  scalefactor: 3.98092
+  t: [-8.60793, 4.54176, 24.5996]
+  R: [-26.6833, -10.6131, -42.6146]
+  t_floor: [-9.12129, 5.2758, 24.9565]
+  R_floor: [123.862, -0.360292, 3.52475]
+dive8-barrel-16-19:
+  scalefactor: 1.20755
+  t: [-3.30182, 2.37011, 3.68184]
+  R: [-194.837, 85.1463, -101.317]
+  t_floor: [-3.23032, 2.57362, 3.80032]
+  R_floor: [113.61, 1.11392, 4.86064]
+dive8-barrel-16-30:
+  scalefactor: 5.12426
+  t: [-3.30519, -2.0716, 26.6117]
+  R: [-63.2985, 22.8261, -65.8161]
+  t_floor: [-3.31424, -1.30544, 26.2766]
+  R_floor: [133.691, -3.76194, -3.58652]
+dive8-barrel-16-31:
+  scalefactor: 3.18336
+  t: [0.900294, 0.332072, 16.2699]
+  R: [-58.4166, 20.823, -14.8881]
+  t_floor: [0.503454, 0.640441, 16.2168]
+  R_floor: [129.758, 10.2788, 10.014]
+dive9-barrel-03-13:
+  scalefactor: 2.15294
+  t: [-0.193272, 1.25871, 8.36791]
+  R: [54.6815, -34.2424, -35.209]
+  t_floor: [0.00632652, 1.31869, 8.45894]
+  R_floor: [-223.45, 30.4433, 31.2281]
+dive9-barrel-03-17:
+  scalefactor: 1.44655
+  t: [-3.82367, 1.38056, 5.46532]
+  R: [-66.7841, 25.3184, -79.1603]
+  t_floor: [-3.79967, 1.55058, 5.61916]
+  R_floor: [120.248, -14.5982, -3.1616]
+dive9-barrel-03-21:
+  scalefactor: 6.09702
+  t: [5.70629, 5.4613, 24.2643]
+  R: [-30.914, -23.8563, 90.0478]
+  t_floor: [5.34425, 6.55443, 24.4927]
+  R_floor: [115.757, 0.518673, -1.07483]
+dive9-barrel-03-39:
+  scalefactor: 3.54282
+  t: [0.152604, 2.03527, 19.4874]
+  R: [30.487, 8.92564, 6.68115]
+  t_floor: [0.178071, 3.03666, 19.6178]
+  R_floor: [120.015, 11.0033, 7.74309]
+dive9-barrel-03-45:
+  scalefactor: 1.58038
+  t: [-1.36793, 0.757254, 5.37789]
+  R: [85.2732, 69.2615, 86.8128]
+  t_floor: [-1.58579, 0.876945, 5.49928]
+  R_floor: [113.389, -0, 0]
+dive9-barrel-03-47:
+  scalefactor: 1.14417
+  t: [2.72034, 0.876059, 3.35275]
+  R: [39.0558, -13.172, -7.81513]
+  t_floor: [2.6533, 0.98677, 3.41914]
+  R_floor: [130.994, -11.3626, -9.42218]
+dive9-barrel-03-51:
+  scalefactor: 1.8593
+  t: [6.30447, 1.99436, 9.15204]
+  R: [19.9707, 33.6622, -7.13516]
+  t_floor: [6.27187, 2.39293, 9.02537]
+  R_floor: [115.651, 32.9392, 2.04391]
+dive9-barrel-04-07:
+  scalefactor: 1.13191
+  t: [-2.99871, 2.15979, 5.8465]
+  R: [18.6018, 22.8133, 10.8329]
+  t_floor: [-2.90891, 2.26358, 5.86197]
+  R_floor: [110.474, 21.1363, 17.3184]
+dive6-smokefloat-10-17-26:
+  scalefactor: 3.00714
+  t: [-3.1463, 1.4806, 10.8915]
+  R: [25.363, 45.6163, 23.4851]
+  t_floor: [-3.43638, 1.84117, 10.3337]
+  R_floor: [137.448, 46.3247, 38.2334]
+dive6-smokefloat-10-20:
+  scalefactor: 5.03308
+  t: [0.0902974, -2.26185, 13.5985]
+  R: [-49.7894, 1.18204, 1.80762]
+  t_floor: [0.245559, -2.0473, 13.4814]
+  R_floor: [136.985, -1.62745, 1.51784]
