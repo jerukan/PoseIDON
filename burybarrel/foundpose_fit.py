@@ -219,7 +219,7 @@ def fit_foundpose_multiview(
     floormask = np.ones(len(sceneptsscaled), dtype=bool)
     floormask[segidxs] = False
     plane1 = pyrsc.Plane()
-    best_eq, best_inliers = plane1.fit(sceneptsscaled[floormask].p, thresh=0.005)
+    best_eq, best_inliers = plane1.fit(sceneptsscaled[floormask].p, thresh=0.05)
     a, b, c, d = best_eq
     normal = np.array([a, b, c])
     R = get_axes_rot([0, 0, 1], normal)
