@@ -3,6 +3,7 @@ from pathlib import Path
 import traceback
 
 import click
+import torch
 import yaml
 
 from burybarrel import config, get_logger, add_file_handler, log_dir
@@ -13,6 +14,13 @@ from burybarrel.scripts.run_foundpose_fit import _run_foundpose_fit
 
 logger = get_logger(__name__)
 add_file_handler(logger, log_dir / "fullpipelineruns.log")
+
+
+cuda_count = torch.cuda.device_count()
+if cuda_count > 0:
+    default_devices = [f"cuda:{i}" for i in range(cuda_count)]
+else:
+    default_devices = ["cpu"]
 
 
 @click.command()
@@ -100,7 +108,7 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
         _create_masks(imgdir, text_prompt, maskdir, closekernelsize=5, convexhull=True, device=device)
     if step_foundpose:
         # TODO this needs to be generalized for foundpose parameters lol
-        _run_foundpose(datadir, resdir, objdir, Path("/home/jeyan/Projects/barrel-playground/otherrepos/foundpose"), pythonbinpath=Path("/scratch/jeyan/conda/envs/foundpose_gpu_311/bin/python"), device=device)
+        _run_foundpose(datadir, resdir, objdir, "/home/jeyan/Projects/barrel-playground/otherrepos/foundpose", pythonbinpath="/scratch/jeyan/conda/envs/foundpose_gpu_311/bin/python", device=device)
     if step_fit:
         _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=True, seed=0, device=device)
         _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=False, seed=0, device=device)
@@ -167,7 +175,7 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
     type=click.STRING,
     help="cuda devices to allocate",
     multiple=True,
-    default=[f"cuda:{i}" for i in range(0, 8)],
+    default=default_devices,
     show_default=True,
 )
 @click.option(

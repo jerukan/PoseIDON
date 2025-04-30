@@ -64,10 +64,7 @@ def _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device
     datadir = Path(datadir)
     resdir = Path(resdir)
     objdir = Path(objdir)
-    repopath = Path(repopath)
-    if pythonbinpath is not None:
-        pythonbinpath = "/scratch/jeyan/conda/envs/foundpose_gpu_311/bin/python"
-    pythonbinpath = Path(pythonbinpath)
+    repopath = Path(repopath).absolute()
 
     foundpose_outdir = resdir / "foundpose-output"
     foundpose_outdir.mkdir(exist_ok=True, parents=True)
@@ -95,8 +92,10 @@ def _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device
         "PYTHONPATH": f"{repopath}:{repopath / 'external/bop_toolkit'}:{repopath / 'external/dinov2'}",
     }
     env = dict(os.environ, **envvars)
-    runcmd = [str(pythonbinpath), "scripts/pipeline.py", "--cfg", str(newcfgpath), "--gen-templates", "--gen-repre", "--infer"]
-    # runcmd = [str(pythonbinpath), "scripts/pipeline.py", "--cfg", str(newcfgpath), "--infer"]
+    if pythonbinpath is not None:
+        runcmd = [str(pythonbinpath), "scripts/pipeline.py", "--cfg", str(newcfgpath), "--gen-templates", "--gen-repre", "--infer"]
+    else:
+        runcmd = ["python", "scripts/pipeline.py", "--cfg", str(newcfgpath), "--gen-templates", "--gen-repre", "--infer"]
     subprocess.run(
         runcmd,
         cwd=repopath, env=env, check=True

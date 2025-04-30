@@ -4,20 +4,16 @@ You want barrels? We got barrels.
 
 ## Environment setup
 
-Just run this, I'll deal with a requirements file later. If anything is still missing after
-installation just pip install it.
-
 ```shell
 git clone https://github.com/jerukan/barrels.git
 cd barrels
 git submodule update --init --recursive
-conda create --name barrels python=3.11
+conda env create --name barrels --file environment.yml
 conda activate barrels
-# if your CUDA setup isn't completely messed up, this can be skipped
+### if your CUDA setup isn't completely messed up, this can be skipped ###
 conda install -c nvidia cuda
 export CUDA_HOME=$CONDA_PREFIX
-# install all through pip and call it a day
-pip install jupyter plotly dill pyransac3d open3d transforms3d roma mitsuba shapely fake-bpy-module jax rtree mapbox-earcut manifold3d kaleido cartopy git+https://github.com/luca-medeiros/lang-segment-anything.git git+https://github.com/google-research/visu3d.git git+https://github.com/jerukan/pyrender.git
+### cuda shenanigans end ###
 ```
 
 ## Script running
@@ -35,6 +31,8 @@ python -m burybarrel script-name [ARGS]
 ```
 
 ### Long running scripts in the background
+
+Use tmux, or if you want, use the `nohup` command as follows:
 
 ```shell
 nohup python -m burybarrel script-name [ARGS] &
