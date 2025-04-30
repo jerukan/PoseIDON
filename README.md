@@ -16,6 +16,13 @@ export CUDA_HOME=$CONDA_PREFIX
 ### cuda shenanigans end ###
 ```
 
+FoundPose must be set up in a separate environment because faiss is incompatible with numpy
+2.x, and I think trying to force 1.x numpy here might cause problems. I think.
+
+```shell
+# TODO setup instructions
+```
+
 ## Script running
 
 Display list of available commands:
