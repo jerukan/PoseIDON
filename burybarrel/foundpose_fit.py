@@ -353,7 +353,7 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
     imgs = np.array([np.array(Image.open(imgpath).convert("RGB")) for imgpath in imgpaths])
     # camera names are just the filenames without extension
     imgnames = [imgpath.stem for imgpath in imgpaths]
-    maskpaths, masks = imgs_from_dir(maskdir, asarray=True, grayscale=True)
+    maskpaths, masks = imgs_from_dir(maskdir, asarray=True, mode="L")
     masks = masks / 255
     masknames = [maskpath.stem for maskpath in maskpaths]
     # COLMAP and SAM may not succeed for all images, so only keep registered images

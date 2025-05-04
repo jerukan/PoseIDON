@@ -24,14 +24,15 @@ from burybarrel.utils import ext_pattern
 logger = get_logger(__name__)
 
 
-def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False, grayscale=False) -> Tuple[List[Path], Union[np.ndarray, List[Image.Image]]]:
+def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False, mode=None) -> Tuple[List[Path], Union[np.ndarray, List[Image.Image]]]:
     """
-    Loads 3-channel RGB or 1-channel grayscale images.
+    Loads images from a directory.
 
     Made so I don't have to rewrite this in every notebook.
 
     Args:
-        asarray (bool): if true, load image array as RGB arrays. Otherwise, load as PIL Images.
+        asarray (bool): if true, load as np array. Otherwise, load as PIL Images.
+        mode (str): refer PIL modes
 
     Returns:
         (imgpaths, imgs): list of img paths and list of loaded images
@@ -46,17 +47,9 @@ def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False, grayscal
         imgpaths.extend(list(imgdir.glob(pattern)))
     if sortnames:
         imgpaths = sorted(imgpaths)
+    imgs = [Image.open(imgpath).convert(mode) for imgpath in imgpaths]
     if asarray:
-        if grayscale:
-            imgs = np.array([cv2.imread(str(imgpath), cv2.IMREAD_GRAYSCALE) for imgpath in imgpaths])
-        else:
-            imgs = np.array([cv2.cvtColor(cv2.imread(str(imgpath)), cv2.COLOR_BGR2RGB) for imgpath in imgpaths])
-    else:
-        imgs = [Image.open(imgpath) for imgpath in imgpaths]
-        if grayscale:
-            imgs = [img.convert("L") for img in imgs]
-        else:
-            imgs = [img.convert("RGB") for img in imgs]
+        imgs = np.array([np.array(img) for img in imgs])
     return imgpaths, imgs
 
 

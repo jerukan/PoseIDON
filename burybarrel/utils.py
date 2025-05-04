@@ -10,6 +10,13 @@ import pandas as pd
 import yaml
 
 
+def name_idx_from_paths(name: str, paths: List[Path]):
+    names = [path.stem for path in paths]
+    if name not in names:
+        return -1
+    return names.index(name)
+
+
 def invert_idxs(idxs, n):
     """
     Invert numerical index.
