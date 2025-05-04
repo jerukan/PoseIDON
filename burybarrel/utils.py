@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 from typing import List, Dict, Union
 
@@ -155,3 +156,18 @@ def rgb2hex(rgb):
     elif len(rgb) == 4:
         return "#{:02x}{:02x}{:02x}{:02x}".format(*rgb)
     raise ValueError("Only RGB or RGBA arrays are supported (3 or 4 elements)")
+
+
+def haversine(lat1, lat2, lon1, lon2):
+    """
+    Calculates the haversine distance between two points.
+    """
+    R = 6378.137  # Radius of earth in KM
+    dLat = lat2 * math.pi / 180 - lat1 * math.pi / 180
+    dLon = lon2 * math.pi / 180 - lon1 * math.pi / 180
+    a = np.sin(dLat / 2) * np.sin(dLat / 2) + np.cos(lat1 * math.pi / 180) * np.cos(
+        lat2 * math.pi / 180
+    ) * np.sin(dLon / 2) * np.sin(dLon / 2)
+    c = 2 * np.arctan2(a ** (1 / 2), (1 - a) ** (1 / 2))
+    d = R * c
+    return d * 1000  # meters
