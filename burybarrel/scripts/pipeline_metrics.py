@@ -195,6 +195,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "multiview_fitted": False,
             "pose_type": "coarse",
             "use_icp": False,
+            "reconstr_type": "none",
             "burial_error_vol": -1,
             "burial_error_z": -1,
             "burial_error_depth": -1,
@@ -221,6 +222,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "multiview_fitted": False,
             "pose_type": "refined",
             "use_icp": False,
+            "reconstr_type": "none",
             "burial_error_vol": -1,
             "burial_error_z": -1,
             "burial_error_depth": -1,
@@ -252,6 +254,10 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                 ests = yaml.safe_load(f)
             with open(estinfopath, "rt") as f:
                 estinfo = yaml.safe_load(f)
+            # skip old estimates without reconstruction type recorded
+            if "reconstr_type" not in estinfo.keys():
+                logger.info(f"Skipping old fit results {fitdir}")
+                continue
             allvsd = []
             allmssd = []
             allmspd = []
@@ -278,6 +284,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                 "multiview_fitted": True,
                 "pose_type": "coarse" if estinfo["use_coarse"] else "refined",
                 "use_icp": estinfo["use_icp"],
+                "reconstr_type": estinfo["reconstr_type"],
                 "burial_error_vol": abs(estinfo["burial_ratio_vol"] - datainfo["burial_ratio_vol"]),
                 "burial_error_z": abs(estinfo["burial_ratio_z"] - datainfo["burial_ratio_z"]),
                 "burial_error_depth": abs(estinfo["burial_depth"] - datainfo["burial_depth"]),

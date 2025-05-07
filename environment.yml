@@ -27,6 +27,7 @@ dependencies:
     - plotly==5.24.1
     - plyfile==1.1
     - pycolmap==3.11.1
+    - pypng==0.20220715.0
     - pyransac3d==0.6.0
     - git+https://github.com/jerukan/pyrender.git@d3f349c
     - pyyaml==6.0.2
