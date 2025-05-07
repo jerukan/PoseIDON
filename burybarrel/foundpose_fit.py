@@ -245,25 +245,28 @@ def fit_foundpose_multiview(
         o3dobj = o3d.geometry.PointCloud()
         o3dobj.points = o3d.utility.Vector3dVector(objinscenepts.p)
         _, inlieridx = o3dobj.remove_statistical_outlier(nb_neighbors=50, std_ratio=2.0)
-        tmpT = []
-        for i, obj2world in enumerate(tqdm(obj2worldsinlier, desc="Running ICP on inlier poses")):
-            samp_trf = obj2world @ meshsamp
-            # source is sfm point cloud, since it is incomplete
-            icpT = v3d.Transform.from_matrix(icp(objinscenepts.p[inlieridx], samp_trf, outlier_std=2.0))
-            tmpT.append(icpT.inv @ obj2world)
-            # debug figure (this takes a while to generate)
-            meshpts = planeT.inv @ v3d.Point3d(p=samp_trf, rgb=[0, 0, 255])
-            meshicppts = planeT.inv @ v3d.Point3d(p=icpT.inv @ samp_trf, rgb=[0, 255, 0])
-            sceneobjzuppts = planeT.inv @ objinscenepts[inlieridx]
-            sceneobjzupoutlierpts = planeT.inv @ objinscenepts[invert_idxs(inlieridx, len(objinscenepts))]
-            sceneobjzupoutlierpts = sceneobjzupoutlierpts.replace(rgb=[255, 0, 0])
-            xycent = np.mean(sceneobjzuppts.p, axis=0)[:2]
-            centT = T_from_translation(-xycent[0], -xycent[1], 0)
-            icpfig = v3d.make_fig(
-                [centT @ meshpts, centT @ meshicppts, centT @ sceneobjzuppts, centT @ sceneobjzupoutlierpts],
-            num_samples_point3d=1000)
-            icpfig.write_html(icpdebugdir / f"icpout_{str(i).zfill(4)}.html")
-        obj2worldsinlier = dca.stack(tmpT)
+        if len(inlieridx) > 10:
+            tmpT = []
+            for i, obj2world in enumerate(tqdm(obj2worldsinlier, desc="Running ICP on inlier poses")):
+                samp_trf = obj2world @ meshsamp
+                # source is sfm point cloud, since it is incomplete
+                icpT = v3d.Transform.from_matrix(icp(objinscenepts.p[inlieridx], samp_trf, outlier_std=2.0))
+                tmpT.append(icpT.inv @ obj2world)
+                # debug figure (this takes a while to generate)
+                meshpts = planeT.inv @ v3d.Point3d(p=samp_trf, rgb=[0, 0, 255])
+                meshicppts = planeT.inv @ v3d.Point3d(p=icpT.inv @ samp_trf, rgb=[0, 255, 0])
+                sceneobjzuppts = planeT.inv @ objinscenepts[inlieridx]
+                sceneobjzupoutlierpts = planeT.inv @ objinscenepts[invert_idxs(inlieridx, len(objinscenepts))]
+                sceneobjzupoutlierpts = sceneobjzupoutlierpts.replace(rgb=[255, 0, 0])
+                xycent = np.mean(sceneobjzuppts.p, axis=0)[:2]
+                centT = T_from_translation(-xycent[0], -xycent[1], 0)
+                icpfig = v3d.make_fig(
+                    [centT @ meshpts, centT @ meshicppts, centT @ sceneobjzuppts, centT @ sceneobjzupoutlierpts],
+                num_samples_point3d=1000)
+                icpfig.write_html(icpdebugdir / f"icpout_{str(i).zfill(4)}.html")
+            obj2worldsinlier = dca.stack(tmpT)
+        else:
+            logger.info(f"Not enough inliers for ICP, skipping this step ({resdir})")
 
     quatsinlier = quaternion.from_rotation_matrix(obj2worldsinlier.R)
     ref = quatsinlier[0]
@@ -274,9 +277,12 @@ def fit_foundpose_multiview(
     quatssymd = np.array(quatssymd)
     obj2worldsinliersym = obj2worldsinlier.replace(R=quaternion.as_rotation_matrix(quatssymd))
 
-    qmeanransac, qinliers = ransac(quatssymd, fit_func=qmean, loss_func=qloss, cost_func=qcost, samp_min=5, inlier_min=5, inlier_thres=0.2, max_iter=50, relax_on_fail=True, seed=seed)
-
-    meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmeanransac), t=np.mean(obj2worldsinliersym.t, axis=0))
+    if len(quatssymd) > 5:
+        qmeanransac, qinliers = ransac(quatssymd, fit_func=qmean, loss_func=qloss, cost_func=qcost, samp_min=5, inlier_min=5, inlier_thres=0.2, max_iter=50, relax_on_fail=True, seed=seed)
+        meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmeanransac), t=np.mean(obj2worldsinliersym.t, axis=0))
+    else:
+        qmean_noransac = qmean(quatssymd)
+        meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmean_noransac), t=np.mean(obj2worldsinliersym.t, axis=0))
     quatfig = v3d.make_fig(*get_axes_traces(obj2worldsinliersym, scale=0.5), *get_axes_traces(meanT, linewidth=10))
     quatfig.update_layout(showlegend=False)
     # quatfig.write_image(resdir / "quaternion_fit.png")
