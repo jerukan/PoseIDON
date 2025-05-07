@@ -1,5 +1,5 @@
 """
-Everything images.
+Everything images. Loading, saving, rendering, etc.
 """
 import json
 import os
