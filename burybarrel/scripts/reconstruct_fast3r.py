@@ -133,7 +133,7 @@ def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device,
         orig_w, orig_h = imgs[0].width, imgs[0].height
         orig_cx, orig_cy = colmapcaminfo["cx"], colmapcaminfo["cy"]
         if len(imgpaths) > img_limit:
-            skip = len(imgpaths) // img_limit
+            skip = len(imgpaths) // img_limit + 1
         else:
             skip = 1
         imgpaths = imgpaths[::skip]
