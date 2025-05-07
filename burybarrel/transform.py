@@ -82,7 +82,7 @@ def qangle(q1: quaternion.quaternion, q2: quaternion.quaternion) -> float:
     qerr = q1 * q2.conjugate()
     if qerr.w < 0:
         qerr *= -1
-    err = np.atan2(np.sqrt(qerr.x ** 2 + qerr.y ** 2 + qerr.z ** 2), qerr.w)
+    err = np.arctan2(np.sqrt(qerr.x ** 2 + qerr.y ** 2 + qerr.z ** 2), qerr.w)
     return err
 
 

@@ -8,3 +8,4 @@ from burybarrel.scripts.full_pipeline import run_full_pipeline, run_full_pipelin
 from burybarrel.scripts.pipeline_metrics import get_metrics
 from burybarrel.scripts.gt_from_blender import gt_from_blender
 from burybarrel.scripts.reconstruct_fast3r import reconstruct_fast3r
+from burybarrel.scripts.reconstruct_vggt import reconstruct_vggt

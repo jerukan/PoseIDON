@@ -13,6 +13,7 @@ from PIL.ImageOps import exif_transpose
 import pycolmap
 import quaternion
 import sqlite3
+from tqdm import tqdm
 import torch
 import torchvision.transforms as tvf
 import trimesh
@@ -79,7 +80,7 @@ logger = get_logger(__name__)
 @click.option(
     "--img-limit",
     "img_limit",
-    default=20,
+    default=19,
     required=True,
     type=click.INT,
     show_default=True,
@@ -115,7 +116,7 @@ def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device,
     lit_module = MultiViewDUSt3RLitModule.load_for_inference(model)
     model.eval()
     lit_module.eval()
-    for dsname in dataset_names:
+    for dsname in tqdm(dataset_names):
         singledata_dir = data_dir / dsname
         colmapcam_path = singledata_dir / "camera.json"
         img_dir = singledata_dir / "rgb"
@@ -132,10 +133,9 @@ def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device,
         imgpaths, imgs = imgs_from_dir(img_dir, sortnames=True)
         orig_w, orig_h = imgs[0].width, imgs[0].height
         orig_cx, orig_cy = colmapcaminfo["cx"], colmapcaminfo["cy"]
+        skip = 1
         if len(imgpaths) > img_limit:
             skip = len(imgpaths) // img_limit + 1
-        else:
-            skip = 1
         imgpaths = imgpaths[::skip]
         imgs = imgs[::skip]
         imgnames =  [imgpath.stem for imgpath in imgpaths]

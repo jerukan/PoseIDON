@@ -9,7 +9,7 @@ import yaml
 from burybarrel import config, get_logger, add_file_handler, log_dir
 from burybarrel.scripts.create_masks import _create_masks
 from burybarrel.scripts.run_foundpose import _run_foundpose
-from burybarrel.scripts.run_foundpose_fit import _run_foundpose_fit
+from burybarrel.foundpose_fit import load_fit_write
 
 
 logger = get_logger(__name__)
@@ -110,10 +110,9 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
         # TODO this needs to be generalized for foundpose parameters lol
         _run_foundpose(datadir, resdir, objdir, "/home/jeyan/Projects/barrel-playground/otherrepos/foundpose", pythonbinpath="/scratch/jeyan/conda/envs/foundpose_gpu_311/bin/python", device=device)
     if step_fit:
-        _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=True, seed=0, device=device)
-        _run_foundpose_fit(datadir, resdir, objdir, use_coarse=True, use_icp=False, seed=0, device=device)
-        _run_foundpose_fit(datadir, resdir, objdir, use_coarse=False, use_icp=True, seed=0, device=device)
-        _run_foundpose_fit(datadir, resdir, objdir, use_coarse=False, use_icp=False, seed=0, device=device)
+        load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="colmap", seed=0, device=device)
+        load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="fast3r", seed=0, device=device)
+        load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="vggt", seed=0, device=device)
 
 
 def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):

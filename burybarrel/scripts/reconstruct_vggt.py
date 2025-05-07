@@ -13,6 +13,7 @@ from PIL.ImageOps import exif_transpose
 import pycolmap
 import quaternion
 import sqlite3
+from tqdm import tqdm
 import torch
 import torchvision.transforms as tvf
 import trimesh
@@ -63,7 +64,7 @@ logger = get_logger(__name__)
 @click.option(
     "--checkpoint",
     "checkpoint_dir",
-    default="/scratch/jeyan/fast3r/Fast3R_ViT_Large_512",
+    default="/scratch/jeyan/vggt/VGGT-1B",
     required=True,
     type=click.STRING,
     show_default=True,
@@ -83,7 +84,7 @@ logger = get_logger(__name__)
     required=True,
     type=click.INT,
     show_default=True,
-    help="Max number of images to use to prevent OOM errors (does VGGT have the same issues?)",
+    help="unused rn probably (does VGGT have the same issues?)",
 )
 @click.option(
     "--overwrite",
@@ -93,10 +94,10 @@ logger = get_logger(__name__)
     type=click.BOOL,
     help="Overwrite existing reconstructions if they exist",
 )
-def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device, img_limit, overwrite):
-    from fast3r.dust3r.inference_multiview import inference
-    from fast3r.models.fast3r import Fast3R
-    from fast3r.models.multiview_dust3r_module import MultiViewDUSt3RLitModule
+def reconstruct_vggt(dataset_names, data_dir, out_dir, checkpoint_dir, device, img_limit, overwrite):
+    from vggt.models.vggt import VGGT
+    from vggt.utils.load_fn import load_and_preprocess_images
+    from vggt.utils.pose_enc import pose_encoding_to_extri_intri
 
     data_dir = Path(data_dir)
     out_dir = Path(out_dir)
@@ -110,16 +111,15 @@ def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device,
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     device = torch.device(device)
-    model = Fast3R.from_pretrained(checkpoint_dir)
-    model = model.to(device)
-    lit_module = MultiViewDUSt3RLitModule.load_for_inference(model)
-    model.eval()
-    lit_module.eval()
-    for dsname in dataset_names:
+    dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
+    # Initialize the model and load the pretrained weights.
+    # This will automatically download the model weights the first time it's run, which may take a while.
+    model = VGGT.from_pretrained(checkpoint_dir).to(device)
+    for dsname in tqdm(dataset_names):
         singledata_dir = data_dir / dsname
         colmapcam_path = singledata_dir / "camera.json"
         img_dir = singledata_dir / "rgb"
-        res_dir = out_dir / dsname / "fast3r-out"
+        res_dir = out_dir / dsname / "vggt-out"
         ply_dir = res_dir / "pc_ply"
         camposes_path = res_dir / "cam_poses.json"
         if camposes_path.exists() and not overwrite:
@@ -132,47 +132,40 @@ def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device,
         imgpaths, imgs = imgs_from_dir(img_dir, sortnames=True)
         orig_w, orig_h = imgs[0].width, imgs[0].height
         orig_cx, orig_cy = colmapcaminfo["cx"], colmapcaminfo["cy"]
-        if len(imgpaths) > img_limit:
-            skip = len(imgpaths) // img_limit
-        else:
-            skip = 1
+        skip = 1
+        # if len(imgpaths) > img_limit:
+        #     skip = len(imgpaths) // img_limit
         imgpaths = imgpaths[::skip]
         imgs = imgs[::skip]
         imgnames =  [imgpath.stem for imgpath in imgpaths]
         imgpathsstr = list(map(str, imgpaths))
-        fast3r_imgs = load_images(imgpathsstr, size=512, verbose=False)
-        fast3r_imgs_nonorm = load_images(imgpathsstr, size=512, verbose=False, normalize=False)
-        fast_w = fast3r_imgs[0]["img"][0].shape[2]
-        output_dict, profiling_info = inference(
-            fast3r_imgs,
-            model,
-            device,
-            dtype=torch.float32,  # or use torch.bfloat16 if supported
-            verbose=True,
-            profiling=True,
-        )
-        poses_c2w_batch, estimated_focals = MultiViewDUSt3RLitModule.estimate_camera_poses(
-            output_dict["preds"],
-            niter_PnP=100,
-            focal_length_estimation_method="first_view_from_global_head"
-        )
-        # poses_c2w_batch is a list; the first element contains the estimated poses for each view.
-        camera_poses = poses_c2w_batch[0]
-
+        vggt_imgs = load_and_preprocess_images(imgpathsstr).to(device)
+        scale_w = vggt_imgs.shape[3]
+        with torch.no_grad():
+            with torch.amp.autocast("cuda", dtype=dtype):
+                # Predict attributes including cameras, depth maps, and point maps.
+                predictions = model(vggt_imgs)
+        extrinsics, intrinsics = pose_encoding_to_extri_intri(predictions["pose_enc"], predictions["images"].shape[-2:])
+        # nx3x4 extrinsics (note this is world2cam, not cam2world, invert later)
+        extrinsics = extrinsics[0].cpu().numpy()
+        intrinsics = intrinsics[0].cpu().numpy()
+        extrinsicbottom = np.zeros((extrinsics.shape[0], 1, 4))
+        extrinsicbottom[..., -1] = 1
+        extrinsics4 = np.concatenate([extrinsics, extrinsicbottom], axis=-2)
         cams = []
-        for i in range(len(fast3r_imgs)):
+        for i in range(len(vggt_imgs)):
             idx = i
-            img = fast3r_imgs_nonorm[idx]["img"][0].cpu().numpy().transpose(1, 2, 0)
+            img = vggt_imgs[i].cpu().numpy().transpose(1, 2, 0)
             rgb = img.reshape(-1, 3)
             rgb = (rgb * 255).astype(np.uint8)
-            xyz = output_dict["preds"][idx]["pts3d_in_other_view"].cpu().numpy().reshape(-1, 3)
+            xyz = predictions["world_points"][0][i].cpu().numpy().reshape(-1, 3)
             trimeshpc = trimesh.PointCloud(vertices=xyz, colors=rgb)
             trimeshpc.export(ply_dir / f"{imgnames[idx]}.ply")
             # convert intrinsics to the original image size
             # since focal length is in pixels, it will be scaled by the ratio of the original
-            # width (1920) to the fast3r scaled width (512 px)
-            fast_f = estimated_focals[0][idx]
-            conv_f = (orig_w / fast_w) * fast_f
+            # width (1920) to the vggt scaled width (518 px)
+            scale_f = intrinsics[idx][0, 0]
+            conv_f = (orig_w / scale_w) * scale_f
             spec = v3d.PinholeCamera(
                 K=[
                     [conv_f, 0, orig_cx],
@@ -183,7 +176,8 @@ def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device,
             )
             cam = v3d.Camera(
                 spec=spec,
-                world_from_cam=v3d.Transform.from_matrix(np.array(camera_poses[idx]))
+                # invert!
+                world_from_cam=v3d.Transform.from_matrix(np.array(extrinsics4[idx])).inv
             )
             cams.append(cam)
         cams = dca.stack(cams)

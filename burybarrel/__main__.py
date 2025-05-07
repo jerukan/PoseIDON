@@ -3,7 +3,7 @@ import click
 from burybarrel.scripts import (
     create_masks, reconstruct_colmap, reconstruct_dust3r, get_footage_keyframes, run_foundpose_fit,
     run_foundpose, run_full_pipeline, run_full_pipelines, get_metrics, gt_from_blender,
-    reconstruct_fast3r
+    reconstruct_fast3r, reconstruct_vggt
 )
 
 
@@ -44,6 +44,7 @@ cli.add_command(run_full_pipelines)
 cli.add_command(get_metrics)
 cli.add_command(gt_from_blender)
 cli.add_command(reconstruct_fast3r)
+cli.add_command(reconstruct_vggt)
 
 
 if __name__ == "__main__":
