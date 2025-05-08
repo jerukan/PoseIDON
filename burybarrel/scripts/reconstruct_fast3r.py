@@ -87,6 +87,14 @@ logger = get_logger(__name__)
     help="Max number of images to use to prevent OOM errors",
 )
 @click.option(
+    "--gt-only",
+    "gt_only",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Limit reconstruction to use gt labeled images",
+)
+@click.option(
     "--overwrite",
     "overwrite",
     is_flag=True,
@@ -94,7 +102,7 @@ logger = get_logger(__name__)
     type=click.BOOL,
     help="Overwrite existing reconstructions if they exist",
 )
-def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device, img_limit, overwrite):
+def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device, img_limit, gt_only, overwrite):
     from fast3r.dust3r.inference_multiview import inference
     from fast3r.models.fast3r import Fast3R
     from fast3r.models.multiview_dust3r_module import MultiViewDUSt3RLitModule
@@ -128,9 +136,24 @@ def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device,
             continue
         res_dir.mkdir(parents=True, exist_ok=True)
         ply_dir.mkdir(parents=True, exist_ok=True)
+        for plyfile in ply_dir.glob("*.ply"):
+            plyfile.unlink()
         with open(colmapcam_path, "rt") as f:
             colmapcaminfo = yaml.safe_load(f)
         imgpaths, imgs = imgs_from_dir(img_dir, sortnames=True)
+        if gt_only:
+            gtpose_path = singledata_dir / "gt_obj2cam.json"
+            with open(gtpose_path, "rt") as f:
+                gtposes = yaml.safe_load(f)
+            gt_imgnames = [Path(gt["img_path"]).stem for gt in gtposes]
+            filt_imgpaths = []
+            filt_imgs = []
+            for i, imgpath in enumerate(imgpaths):
+                if imgpath.stem in gt_imgnames:
+                    filt_imgpaths.append(imgpath)
+                    filt_imgs.append(imgs[i])
+            imgpaths = filt_imgpaths
+            imgs = filt_imgs
         orig_w, orig_h = imgs[0].width, imgs[0].height
         orig_cx, orig_cy = colmapcaminfo["cx"], colmapcaminfo["cy"]
         skip = 1
