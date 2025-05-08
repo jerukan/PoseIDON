@@ -111,8 +111,10 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
         _run_foundpose(datadir, resdir, objdir, "/home/jeyan/Projects/barrel-playground/otherrepos/foundpose", pythonbinpath="/scratch/jeyan/conda/envs/foundpose_gpu_311/bin/python", device=device)
     if step_fit:
         load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="colmap", seed=0, device=device)
-        load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="fast3r", seed=0, device=device)
-        load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="vggt", seed=0, device=device)
+        if (resdir / "fast3r-out").exists():
+            load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="fast3r", seed=0, device=device)
+        if (resdir / "vggt-out").exists():
+            load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="vggt", seed=0, device=device)
 
 
 def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):
@@ -249,4 +251,5 @@ def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_all=Fa
                 future.result()
                 logger.info(f"finished datasets {device}")
             except Exception as e:
-                logger.error(f"exception in {device} for datasets {device}: {e}")
+                logger.error(f"exception in {device} for datasets {devnames}: {e}")
+    logger.info("FINISHED PROCESSING ALL DATASETS")
