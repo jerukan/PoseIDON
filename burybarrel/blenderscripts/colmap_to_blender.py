@@ -16,7 +16,7 @@ import mathutils
 print("CURRENT WORKING DIRECTORY")
 print(os.getcwd())
 
-name = "barrel2-sample001"
+name = "barrel2-sample004"
 if "Scene" not in bpy.context.scene.name:
     # creating a new scene crashes my blender so...
     # bpy.ops.scene.new(type="NEW")
