@@ -47,10 +47,17 @@ def imgs_from_dir(imgdir, sortnames=True, patterns=None, asarray=False, mode=Non
         imgpaths.extend(list(imgdir.glob(pattern)))
     if sortnames:
         imgpaths = sorted(imgpaths)
+    imgs = imgs_from_paths(imgpaths, asarray=asarray, mode=mode)
+    return imgpaths, imgs
+
+
+def imgs_from_paths(imgpaths, asarray=False, mode=None) -> Union[np.ndarray, List[Image.Image]]:
+    if not isinstance(imgpaths, (list, tuple, np.ndarray)):
+        imgpaths = [imgpaths]
     imgs = [Image.open(imgpath).convert(mode) for imgpath in imgpaths]
     if asarray:
         imgs = np.array([np.array(img) for img in imgs])
-    return imgpaths, imgs
+    return imgs
 
 
 def delete_imgs_in_dir(imgdir, patterns=None):
