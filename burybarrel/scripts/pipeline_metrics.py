@@ -93,6 +93,9 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
     for singleresdir in tqdm.tqdm(allresdirs):
         logger.info(f"processing results for following dataset: {singleresdir}")
         dataname = singleresdir.name
+        if "sample" in dataname:
+            logger.info(f"Skipping {dataname} because it was a subsampled dataset")
+            continue
         singledatadir = datadir / dataname
         fitoutdir = singleresdir / "fit-output"
         if not fitoutdir.exists():
