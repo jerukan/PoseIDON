@@ -11,6 +11,7 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
+from PIL import Image
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
 from sklearn.neighbors import KDTree
@@ -177,6 +178,36 @@ def get_trimesh_traces(mesh: trimesh.Trimesh, surfcolor: str=None, wirecolor: st
     if wirecolor is not None:
         wireframetrace = wireframetrace.update({"line": {"color": wirecolor}})
     return meshtrace, wireframetrace
+
+
+def get_cam_imgsurf_trace(cam: v3d.Camera, img: Image.Image) -> go.Surface:
+    """
+    Creates a surface with an image as its color in a v3d camera viewport.
+
+    The image will be at the base of the camera "pyramid".
+    """
+    if img.height != cam.spec.h or img.width != cam.spec.w:
+        raise ValueError(f"camera resolution {cam.spec.resolution} is different from image {img.size}")
+    Pimg = img.convert("P", palette="WEB", dither=None)
+    idx_to_color = np.array(Pimg.getpalette()).reshape((-1, 3))
+    colorscale = [[i / 255.0, "rgb({}, {}, {})".format(*rgb)] for i, rgb in enumerate(idx_to_color)]
+    # plotly just straight ignores the colorscale if a value for 1 is not in it
+    if colorscale[-1][0] < 1:
+        colorscale.append([1, "rgb(0, 0, 0)"])
+    corners = cam.spec._get_camera_lines()[0][4:]
+    corners = cam.world_from_cam @ corners
+    widthfracs = np.linspace(0, 1, cam.spec.w)
+    heightfracs = np.linspace(0, 1, cam.spec.h)
+    widths, heights = np.meshgrid(widthfracs, heightfracs)
+    widthvec = corners[2] - corners[0]
+    heightvec = corners[1] - corners[0]
+    planegrid = corners[0] + (widths[..., None] * [widthvec]) + (heights[..., None] * [heightvec])
+    xx, yy, zz = planegrid[..., 0], planegrid[..., 1], planegrid[..., 2]
+    surf = go.Surface(
+        x=xx, y=yy, z=zz, opacity=1.0, cmin=0,
+        cmax=255, surfacecolor=Pimg, colorscale=colorscale, showscale=False
+    )
+    return surf
 
 
 def generate_domain(lats, lons, padding=0):
