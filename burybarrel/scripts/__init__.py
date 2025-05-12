@@ -3,7 +3,7 @@ from burybarrel.scripts.reconstruct_colmap import reconstruct_colmap
 from burybarrel.scripts.get_footage_keyframes import get_footage_keyframes, subset_footage_keyframes
 from burybarrel.scripts.run_foundpose_fit import run_foundpose_fit
 from burybarrel.scripts.run_foundpose import run_foundpose
-from burybarrel.scripts.full_pipeline import run_full_pipeline, run_full_pipelines
+from burybarrel.scripts.full_pipeline import run_full_pipelines
 from burybarrel.scripts.pipeline_metrics import get_metrics
 from burybarrel.scripts.gt_from_blender import gt_from_blender
 from burybarrel.scripts.reconstruct_fast3r import reconstruct_fast3r

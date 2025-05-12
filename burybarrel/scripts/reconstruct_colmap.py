@@ -340,6 +340,7 @@ def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=Tr
 class InvalidCOLMAPError(Exception):
     pass
 
+
 class OpenMVSSigSegvError(Exception):
     pass
 

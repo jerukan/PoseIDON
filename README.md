@@ -16,12 +16,33 @@ export CUDA_HOME=$CONDA_PREFIX
 ### cuda shenanigans end ###
 ```
 
-FoundPose must be set up in a separate environment because faiss is incompatible with numpy
-2.x, and I think trying to force 1.x numpy here might cause problems. I think.
+Next, Foundpose dependencies must be set up in a separate environment because it uses
+faiss, which is incompatible with numpy 2.x, and I think trying to force 1.x numpy here might
+cause problems. Probably.
 
 ```shell
-# TODO setup instructions
+cd foundpose
+conda env create --name foundpose_gpu_311 --file environment.yml
+cd ..
 ```
+
+Afterwards, go into [burybarrel/config.py](burybarrel/config.py) and change the path to the
+FoundPose Python environment.
+
+```python
+FOUNDPOSE_PYTHON_BIN_PATH = Path("/path/to/environment/path/foundpose_gpu_311/bin/python")
+```
+
+For densifying point clouds and generating 3D reconstruction meshes from
+[COLMAP](https://github.com/colmap/colmap), we use [OpenMVS](https://github.com/cdcseacave/openMVS)
+since it can do so on a CPU. Getting densification workin on either COLMAP or OpenMVS requires
+rebuilding the repository from source, so regardless we'll have to suffer from CMake.
+
+```shell
+# TODO
+```
+
+### Optional Fast3r and VGGT setup
 
 ## Script running
 
