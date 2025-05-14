@@ -322,3 +322,81 @@ def icp_translate(
         alltranslations[j, :] = p
     bestidx = np.argmin(allmeandists)
     return alltranslations[bestidx]
+
+
+def icp_scaleadapt(src_pc: np.ndarray, trg_pc: np.ndarray, T_init=None, max_iters=20, tol=1e-3, verbose=False, ret_err=False, outlier_std=0.0):
+    """
+    Scale-adaptive ICP.
+
+    Sahillioglu and Kavan 2021.
+    """
+    src_mean = np.mean(src_pc, axis=0)
+    src_cent = src_pc - src_mean
+
+    target_kd = KDTree(trg_pc)
+
+    if T_init is not None:
+        T0 = np.array(T_init)
+    else:
+        T0 = np.eye(4)
+    s0 = 1.0
+    prevs = s0
+    prevT = T0
+    T = T0
+    s = s0
+    for i in range(max_iters):
+        R = T[:3, :3]
+        p = T[:3, 3]
+        distances, close_idxs = target_kd.query(s * (R @ src_pc.T).T + p)
+        distances = np.reshape(distances, -1)
+        close_idxs = np.reshape(close_idxs, -1)
+        if outlier_std > 0.0:
+            # reject based on distance stddev
+            inliermask = np.abs(distances - np.mean(distances)) < outlier_std * np.std(distances)
+            close_idxs = close_idxs[inliermask]
+            # recompute source mean and centered source pc
+            src_mean = np.mean(src_pc[inliermask], axis=0)
+            src_cent = src_pc[inliermask] - src_mean
+        trg_mean_filt = np.mean(trg_pc[close_idxs], axis=0)
+        z = src_cent
+        m = trg_pc[close_idxs] - trg_mean_filt
+        Q = m.T @ z
+        U, S, V = np.linalg.svd(Q)  # V is returned already transposed
+        R = U @ np.diag([1, 1, np.linalg.det(U @ V)]) @ V
+        src_rot = (R @ z.T).T
+        src_rot_dotsum = np.trace(src_rot @ src_rot.T)
+        src_rot_trg_dotsum = np.trace(src_rot @ m.T)
+        c = np.sum(src_rot, axis=0)
+        d = np.sum(m, axis=0)
+        n = len(src_rot)
+        A = np.array([
+            [src_rot_dotsum, c[0], c[1], c[2]],
+            [c[0], n, 0, 0],
+            [c[1], 0, n, 0],
+            [c[2], 0, 0, n],
+        ])
+        b = np.array([
+            src_rot_trg_dotsum,
+            d[0],
+            d[1],
+            d[2],
+        ])
+        x = np.linalg.solve(A, b)
+        s = x[0]
+        p = x[1:4]
+        T = np.eye(4)
+        T[:3, :3] = R
+        T[:3, 3] = p
+        if np.allclose(prevT, T, atol=tol) and np.allclose(prevs, s, atol=tol):
+            break
+        prevT = T
+        prevs = s
+        if i == max_iters - 1:
+            if verbose:
+                print(f"max iters {max_iters} reached before tolerance {tol}")
+    if ret_err:
+        # mean square error
+        dists, _ = target_kd.query((R @ src_cent.T).T + p)
+        err = np.mean(dists ** 2)
+        return T, s, err
+    return T, s
