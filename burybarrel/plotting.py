@@ -154,7 +154,7 @@ def get_line3d_trace(
     )
 
 
-def get_trimesh_traces(mesh: trimesh.Trimesh, surfcolor: str=None, wirecolor: str=None) -> Tuple[go.Mesh3d, go.Scatter3d]:
+def get_trimesh_traces(mesh: trimesh.Trimesh, surfcolor: str=None, wirecolor: str=None, wirewidth=None) -> Tuple[go.Mesh3d, go.Scatter3d]:
     """
     Gets the plotly traces for mesh surface and mesh wireframe by ripping them from
     the figure made by figure factory.
@@ -176,8 +176,14 @@ def get_trimesh_traces(mesh: trimesh.Trimesh, surfcolor: str=None, wirecolor: st
     meshtrace: go.Mesh3d = traces[0]
     wireframetrace: go.Scatter3d = traces[1]
     if wirecolor is not None:
-        wireframetrace = wireframetrace.update({"line": {"color": wirecolor}})
+        wireframetrace = wireframetrace.update({"line": {"color": wirecolor, "width": wirewidth}})
     return meshtrace, wireframetrace
+
+
+def get_resized_pc_trace(pc: v3d.Point3d, markersize):
+    return pc.make_traces()[0].update(
+        {"marker": {"size": markersize}}
+    )
 
 
 def get_cam_imgsurf_trace(cam: v3d.Camera, img: Image.Image, res_scale=1.0, opacity=1.0) -> go.Surface:
