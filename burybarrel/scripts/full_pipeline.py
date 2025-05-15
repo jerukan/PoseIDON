@@ -1,5 +1,6 @@
 import concurrent.futures
 from pathlib import Path
+import time
 import traceback
 
 import click
@@ -158,12 +159,21 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
     imgdir = datadir / "rgb"
     maskdir = resdir / "sam-masks"
     if step_mask:
+        mask_t0 = time.time()
         _create_masks(imgdir, text_prompt, maskdir, closekernelsize=5, convexhull=True, device=device)
+        mask_t1 = time.time()
+        logger.info(f"Mask creation for dataset {name} took {mask_t1 - mask_t0:.2f} seconds")
     if step_foundpose:
         # TODO this needs to be generalized for foundpose parameters lol
+        foundpose_t0 = time.time()
         _run_foundpose(datadir, resdir, objdir, "foundpose", pythonbinpath=config.FOUNDPOSE_PYTHON_BIN_PATH, device=device)
+        foundpose_t1 = time.time()
+        logger.info(f"Foundpose for dataset {name} took {foundpose_t1 - foundpose_t0:.2f} seconds")
     if step_fit:
+        fit_t0 = time.time()
         load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="colmap", seed=0, device=device)
+        fit_t1 = time.time()
+        logger.info(f"Multiview fitting for dataset {name} took {fit_t1 - fit_t0:.2f} seconds")
         if (resdir / "fast3r-out").exists():
             load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="fast3r", seed=0, device=device)
         if (resdir / "vggt-out").exists():
