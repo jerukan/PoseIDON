@@ -14,7 +14,7 @@ import trimesh
 import visu3d as v3d
 import yaml
 
-from burybarrel import get_logger, add_file_handler, log_dir
+from burybarrel import get_logger, add_file_handler, log_dir, config
 import burybarrel.colmap_util as cutil
 from burybarrel.image import imgs_from_dir
 from burybarrel.camera import save_v3dcams, RadialCamera
@@ -23,8 +23,6 @@ from burybarrel.mesh import load_mesh
 
 logger = get_logger(__name__)
 add_file_handler(logger, log_dir / "colmap_reconstruct.log")
-DEFAULT_DATA_DIR_LOCAL = Path("data/input_data/")
-DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
 
 
 @click.command()
@@ -41,7 +39,7 @@ DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     "-d",
     "--datadir",
     "data_dir",
-    default=DEFAULT_DATA_DIR_LOCAL,
+    default=config.DEFAULT_DATA_DIR_LOCAL,
     required=True,
     type=click.Path(exists=True, file_okay=False),
     show_default=True,
@@ -51,7 +49,7 @@ DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     "-o",
     "--outdir",
     "out_dir",
-    default=DEFAULT_RESULTS_DIR_LOCAL,
+    default=config.DEFAULT_RESULTS_DIR_LOCAL,
     required=True,
     type=click.Path(file_okay=False),
     show_default=True,

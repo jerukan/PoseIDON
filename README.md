@@ -1,4 +1,4 @@
-# Pose Estimation of Buried Deep-Sea Objects using 3D Vision Deep Learning Models
+# 6arrel: Pose Estimation of Buried Deep-Sea Objects using 3D Vision Deep Learning Models
 
 You want barrels? We got barrels.
 
@@ -91,11 +91,29 @@ cd ../..
 
 ### Optional Fast3r and VGGT setup
 
+If you want to run the pipeline with recent deep-learning models for 3D reconstruction instead of classical photogrammetry, we have code to test the following models: [Fast3r](https://github.com/facebookresearch/fast3r) and [VGGT](https://github.com/facebookresearch/vggt).
+
+Fast3r setup:
+
 ```shell
-# TODO
+git clone https://github.com/facebookresearch/fast3r.git
+cd fast3r
+pip install -r requirements.txt
+pip install -e .
+cd ..
 ```
 
-## Script running
+VGGT setup is similar:
+
+```shell
+git clone https://github.com/facebookresearch/vggt.git
+cd vggt
+pip install -r requirements.txt
+pip install -e .
+cd ..
+```
+
+## Running scripts
 
 Display list of available commands:
 
@@ -111,7 +129,9 @@ python -m burybarrel script-name [ARGS]
 
 ### Long running scripts in the background
 
-Use tmux, or if you want, use the `nohup` command as follows:
+It's suggested to use [tmux](https://github.com/tmux/tmux/wiki).
+
+Otherwise, you can use the `nohup` command as follows:
 
 ```shell
 nohup python -m burybarrel script-name [ARGS] &
@@ -120,6 +140,13 @@ nohup python -m burybarrel script-name [ARGS] &
 Output will go to `nohup.out`.
 
 ## Data/results file structure organization
+
+There are three important directories:
+1. input data directory
+2. results directory
+3. CAD model directory.
+
+The general content of each are listed below.
 
 - `datasets/`
 	- `dataset-name/`
@@ -147,3 +174,69 @@ Output will go to `nohup.out`.
 - `models3d/`
 	- `model_info.json` (symmetry info for now)
 	- .ply files here
+
+## Running inference
+
+This process is also annoying, so buckle up.
+
+### Data download
+
+May or may not be coming.
+
+### Configure paths
+
+Go to [burybarrel/config.py](burybarrel/config.py) and set the following variables to your own paths:
+
+```python
+DEFAULT_DATA_DIR = Path("path/to/input/data/dir")
+DEFAULT_RESULTS_DIR = Path("path/to/output/results/dir")
+DEFAULT_MODEL_DIR = Path("path/to/CAD/models/dir")
+
+ONE_MACHINE = True
+```
+
+Most scripts have options to specify these paths too, so it's not neccessary to set this unless you want to retype the paths every time you run a script.
+
+### Running the model
+
+Provide video information in [configs/footage.yaml](configs/footage.yaml).
+
+```yaml
+dataset-name:
+  input_path: path/to/video.mp4
+  output_dir: path/to/output/results/dir
+  start_time: ~
+  timezone: US/Pacific
+  step: ~
+  navpath: ~
+  # crop: [0, 120, 1920, 875]
+  crop: ~
+  maskpaths: [data/dive-data/footage-mask-hud.png]
+  fps: 25
+  increase_contrast: False
+  denoise_depth: True
+  object_name: ~
+  description: ~
+```
+
+Get frames from a video.
+
+```shell
+python -m burybarrel get-footage-keyframes -n dataset-name
+```
+
+Perform 3D reconstruction.
+
+```shell
+python -m burybarrel reconstruct-colmap --sparse --dense -n dataset-name
+```
+
+Perform segmentation, FoundPose monocular pose estimates, and multiview pose aggregation.
+
+```shell
+python -m burybarrel run-full-pipelines --step-all -n dataset-name
+```
+
+### Logging
+
+Runtime logs should be located in the [logs/](logs/) directory.

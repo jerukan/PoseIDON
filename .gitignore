@@ -1,4 +1,6 @@
-*.log
+*.logs
+logs/**
+!logs/.gitkeep
 data/**
 !data/.gitkeep
 results/**
