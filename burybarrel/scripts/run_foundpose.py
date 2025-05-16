@@ -83,6 +83,8 @@ def _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device
     basetemplate["common_opts"]["device"] = device
     basetemplate["infer_opts"]["dataset_path"] = str(datadir / "rgb")
     basetemplate["infer_opts"]["mask_path"] = str(resdir / "sam-masks")
+    # set to true later
+    # basetemplate["infer_opts"]["vis_results"] = False
     newcfgpath = foundpose_outdir / "config.yaml"
     with open(newcfgpath, "wt") as f:
         yaml.safe_dump(basetemplate, f)

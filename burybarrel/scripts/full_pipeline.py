@@ -171,7 +171,7 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
         logger.info(f"Foundpose for dataset {name} took {foundpose_t1 - foundpose_t0:.2f} seconds")
     if step_fit:
         fit_t0 = time.time()
-        load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="colmap", seed=0, device=device)
+        load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="colmap", seed=0, device=device, save_figs=True)
         fit_t1 = time.time()
         logger.info(f"Multiview fitting for dataset {name} took {fit_t1 - fit_t0:.2f} seconds")
         if (resdir / "fast3r-out").exists():

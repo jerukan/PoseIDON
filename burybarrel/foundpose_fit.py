@@ -141,6 +141,7 @@ def fit_foundpose_multiview(
     use_icp: bool = False,
     seed = None,
     resdir = None,
+    save_figs=False,
 ) -> Tuple[List[Dict], v3d.Transform, float, float]:
     cams = cameras
     # names, cameras are already assumed to be ordered and filtered
@@ -252,18 +253,19 @@ def fit_foundpose_multiview(
                 # source is sfm point cloud, since it is incomplete
                 icpT = v3d.Transform.from_matrix(icp(objinscenepts.p[inlieridx], samp_trf, outlier_std=2.0))
                 tmpT.append(icpT.inv @ obj2world)
-                # debug figure (this takes a while to generate)
-                meshpts = planeT.inv @ v3d.Point3d(p=samp_trf, rgb=[0, 0, 255])
-                meshicppts = planeT.inv @ v3d.Point3d(p=icpT.inv @ samp_trf, rgb=[0, 255, 0])
-                sceneobjzuppts = planeT.inv @ objinscenepts[inlieridx]
-                sceneobjzupoutlierpts = planeT.inv @ objinscenepts[invert_idxs(inlieridx, len(objinscenepts))]
-                sceneobjzupoutlierpts = sceneobjzupoutlierpts.replace(rgb=[255, 0, 0])
-                xycent = np.mean(sceneobjzuppts.p, axis=0)[:2]
-                centT = T_from_translation(-xycent[0], -xycent[1], 0)
-                icpfig = v3d.make_fig(
-                    [centT @ meshpts, centT @ meshicppts, centT @ sceneobjzuppts, centT @ sceneobjzupoutlierpts],
-                num_samples_point3d=1000)
-                icpfig.write_html(icpdebugdir / f"icpout_{str(i).zfill(4)}.html")
+                if save_figs:
+                    # debug figure (this takes a while to generate)
+                    meshpts = planeT.inv @ v3d.Point3d(p=samp_trf, rgb=[0, 0, 255])
+                    meshicppts = planeT.inv @ v3d.Point3d(p=icpT.inv @ samp_trf, rgb=[0, 255, 0])
+                    sceneobjzuppts = planeT.inv @ objinscenepts[inlieridx]
+                    sceneobjzupoutlierpts = planeT.inv @ objinscenepts[invert_idxs(inlieridx, len(objinscenepts))]
+                    sceneobjzupoutlierpts = sceneobjzupoutlierpts.replace(rgb=[255, 0, 0])
+                    xycent = np.mean(sceneobjzuppts.p, axis=0)[:2]
+                    centT = T_from_translation(-xycent[0], -xycent[1], 0)
+                    icpfig = v3d.make_fig(
+                        [centT @ meshpts, centT @ meshicppts, centT @ sceneobjzuppts, centT @ sceneobjzupoutlierpts],
+                    num_samples_point3d=1000)
+                    icpfig.write_html(icpdebugdir / f"icpout_{str(i).zfill(4)}.html")
             obj2worldsinlier = dca.stack(tmpT)
         else:
             logger.info(f"Not enough inliers for ICP, skipping this step ({resdir})")
@@ -283,10 +285,11 @@ def fit_foundpose_multiview(
     else:
         qmean_noransac = qmean(quatssymd)
         meanT = v3d.Transform(R=quaternion.as_rotation_matrix(qmean_noransac), t=np.mean(obj2worldsinliersym.t, axis=0))
-    quatfig = v3d.make_fig(*get_axes_traces(obj2worldsinliersym, scale=0.5), *get_axes_traces(meanT, linewidth=10))
-    quatfig.update_layout(showlegend=False)
-    # quatfig.write_image(resdir / "quaternion_fit.png")
-    quatfig.write_html(resdir / "quaternion_fit.html")
+    if save_figs:
+        quatfig = v3d.make_fig(*get_axes_traces(obj2worldsinliersym, scale=0.5), *get_axes_traces(meanT, linewidth=10))
+        quatfig.update_layout(showlegend=False)
+        # quatfig.write_image(resdir / "quaternion_fit.png")
+        quatfig.write_html(resdir / "quaternion_fit.html")
 
     # burial ratio by fitting plane to floor point cloud
     T_zup = planeT.inv @ meanT
@@ -305,12 +308,13 @@ def fit_foundpose_multiview(
         burial_depth = 0
 
     # visualization of fitted scene
-    meshzuppts = v3d.Point3d(p=meshzup.vertices)
-    scenezuppts = planeT.inv @ sceneptsscaled
-    aggfig = v3d.make_fig([scenezuppts, meshzuppts, camzup])
-    aggfig.update_layout(showlegend=False)
-    # aggfig.write_image(resdir / "scene-aggregate-fit.png")
-    aggfig.write_html(resdir / "scene-aggregate-fit.html")
+    if save_figs:
+        meshzuppts = v3d.Point3d(p=meshzup.vertices)
+        scenezuppts = planeT.inv @ sceneptsscaled
+        aggfig = v3d.make_fig([scenezuppts, meshzuppts, camzup])
+        aggfig.update_layout(showlegend=False)
+        # aggfig.write_image(resdir / "scene-aggregate-fit.png")
+        aggfig.write_html(resdir / "scene-aggregate-fit.html")
 
     plane2camfit = camscaled.world_from_cam.inv @ planeT[..., None]
     obj2camfit = camscaled.world_from_cam.inv @ meanT[..., None]
@@ -329,7 +333,7 @@ def fit_foundpose_multiview(
     return estposes, meanT, scalefactor, planeT, burial_ratio_vol, burial_ratio_z, burial_depth
 
 
-def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, reconstr_type="colmap", seed=None, device=None):
+def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, reconstr_type="colmap", seed=None, device=None, save_figs=False):
     # existing dirs
     datadir = Path(datadir)
     resdir = Path(resdir)
@@ -390,21 +394,23 @@ def load_fit_write(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=F
         use_coarse=use_coarse,
         use_icp=use_icp,
         seed=seed,
-        resdir=estimate_dir
+        resdir=estimate_dir,
+        save_figs=save_figs,
     )
     camscaled = scale_cams(filtcams, scalefactor)
 
     overlaydir = estimate_dir / f"fit-overlays"
     overlaydir.mkdir(exist_ok=True)
     plane = trimesh.creation.box(extents=(10, 10, 0.01))
-    for i, img in enumerate(tqdm(filtimgs, desc="Rendering fit overlay results")):
-        imgname = filtnames[i]
-        rgb, _, _ = render_models(camscaled[i], mesh, meanT, light_intensity=40.0, device=device)
-        overlayimg = to_contour(rgb, color=(255, 0, 0), background=img)
-        Image.fromarray(overlayimg).save(overlaydir / f"{imgname}.jpg")
-        # Image.fromarray(render_v3d(camscaled[i], meanT @ meshpts, radius=4, background=img)).save(overlaydir / f"{imgpaths[i].stem}.png")
-        rgb_primitives, _, _ = render_models(camscaled[i], [mesh, plane], [meanT, planeT], light_intensity=200.0, device=device)
-        Image.fromarray(rgb_primitives).save(overlaydir / f"{imgname}_primitives.jpg")
+    if save_figs:
+        for i, img in enumerate(tqdm(filtimgs, desc="Rendering fit overlay results")):
+            imgname = filtnames[i]
+            rgb, _, _ = render_models(camscaled[i], mesh, meanT, light_intensity=40.0, device=device)
+            overlayimg = to_contour(rgb, color=(255, 0, 0), background=img)
+            Image.fromarray(overlayimg).save(overlaydir / f"{imgname}.jpg")
+            # Image.fromarray(render_v3d(camscaled[i], meanT @ meshpts, radius=4, background=img)).save(overlaydir / f"{imgpaths[i].stem}.png")
+            rgb_primitives, _, _ = render_models(camscaled[i], [mesh, plane], [meanT, planeT], light_intensity=200.0, device=device)
+            Image.fromarray(rgb_primitives).save(overlaydir / f"{imgname}_primitives.jpg")
     with open(estimate_dir / f"estimated-poses.json", "wt") as f:
         json.dump(results, f, indent=4)
     otherresults = {
