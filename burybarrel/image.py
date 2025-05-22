@@ -247,13 +247,13 @@ def render_models(
         scene.add_node(meshnode)
         meshnodes.append(meshnode)
     camnode = pyrender.Node(camera=pyrendercam, matrix=oglcamT.matrix4x4)
-    # light = pyrender.SpotLight(
-    #     color=np.ones(3),
-    #     intensity=light_intensity,
-    #     innerConeAngle=np.pi / 16.0,
-    #     outerConeAngle=np.pi / 6.0,
-    # )
-    light = pyrender.PointLight(color=np.ones(3), intensity=light_intensity)
+    light = pyrender.SpotLight(
+        color=np.ones(3),
+        intensity=light_intensity,
+        innerConeAngle=np.pi / 16.0,
+        outerConeAngle=np.pi / 6.0,
+    )
+    # light = pyrender.PointLight(color=np.ones(3), intensity=light_intensity)
     lightnode = pyrender.Node(light=light, matrix=oglcamT.matrix4x4)
     scene.add_node(camnode)
     scene.add_node(lightnode)

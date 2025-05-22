@@ -49,7 +49,7 @@ def get_surface_line_traces(
     return traces
 
 
-def get_plane_zup(pts, n=10, z=0, square_grid=False):
+def get_plane_zup(pts, n=10, z=0, square_grid=False, T: v3d.Transform=None):
     pts = np.array(pts)
     xmin = np.min(pts[:, 0])
     xmax = np.max(pts[:, 0])
@@ -74,7 +74,18 @@ def get_plane_zup(pts, n=10, z=0, square_grid=False):
     xx, yy = np.meshgrid(np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny))
     zz = np.zeros_like(xx)
     zz.fill(z)
+    shape = xx.shape
+    if T is not None:
+        pts = T @ np.array([xx.reshape(-1), yy.reshape(-1), zz.reshape(-1)]).T
+        xx, yy, zz = pts[:, 0].reshape(shape), pts[:, 1].reshape(shape), pts[:, 2].reshape(shape)
     return xx, yy, zz
+
+
+def get_plane_traces(pts, n=10, z=0, square_grid=False, T: v3d.Transform=None):
+    xx, yy, zz = get_plane_zup(pts, n=n, z=z, square_grid=square_grid, T=T)
+    planetrace = go.Surface(x=xx, y=yy, z=zz, opacity=0.3, colorscale="purples", colorbar=None)
+    linetraces = get_surface_line_traces(xx, yy, zz, color="#101010", width=1, step=1)
+    return (planetrace, *linetraces)
 
 
 def get_ray_trace(
