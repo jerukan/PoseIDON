@@ -1,4 +1,6 @@
-# 6arrel: Pose Estimation of Buried Deep-Sea Objects using 3D Vision Deep Learning Models
+# Mapping Marine Sediment Burial Through Deep Learning-Based Pose Estimation
+
+PoseIDON: **Pose** **I**dentification for **D**epth of **O**bjects via foundation model **N**etworks
 
 You want barrels? We got barrels.
 
