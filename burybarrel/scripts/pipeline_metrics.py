@@ -101,6 +101,9 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         if not fitoutdir.exists():
             logger.info(f"Skipping {dataname} because fit-output does not exist")
             continue
+        if not singledatadir.exists():
+            logger.info(f"Skipping {dataname} because datadir does not exist")
+            continue
 
         with open(singledatadir / "gt_obj2cam.json", "rt") as f:
             gtposes = yaml.safe_load(f)
@@ -157,6 +160,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         symTs = get_symmetry_transformations(allobjectinfo[object_name], 0.01)
 
         mesh: trimesh.Trimesh = trimesh.load(objectdir / object_name)
+        diameter = mesh.bounding_sphere.primitive.radius * 2
         vtxs = np.array(mesh.vertices)
 
         # raw foundpose metrics
@@ -179,10 +183,10 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             R_gt = gt_Rs[i]
             t_gt = gt_ts[i]
             coarsevsd, coarsemssd, coarsemspd = evaluate_singleest(
-                ests, imgname, R_gt, t_gt, depths[depthidx], K, renderer, vtxs, object_name, coarse=True, syms=symTs, rankbest_hyp=rankbest_hyp
+                ests, imgname, R_gt, t_gt, depths[depthidx], K, renderer, vtxs, object_name, diameter, w, coarse=True, syms=symTs, rankbest_hyp=rankbest_hyp
             )
             refvsd, refmssd, refmspd = evaluate_singleest(
-                ests, imgname, R_gt, t_gt, depths[depthidx], K, renderer, vtxs, object_name, coarse=False, syms=symTs, rankbest_hyp=rankbest_hyp
+                ests, imgname, R_gt, t_gt, depths[depthidx], K, renderer, vtxs, object_name, diameter, w, coarse=False, syms=symTs, rankbest_hyp=rankbest_hyp
             )
             foundposecoarsevsd.append(coarsevsd)
             foundposecoarsemssd.append(coarsemssd)
@@ -274,7 +278,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                 # rankbest_hyp is false since multiview fit already uses all hypotheses
                 # thus there is only 1 hypothesis per image
                 imgvsd, imgmssd, imgmspd = evaluate_singleest(
-                    ests, imgname, R_gt, t_gt, depths[depthidx], K, renderer, vtxs, object_name, syms=symTs, rankbest_hyp=False
+                    ests, imgname, R_gt, t_gt, depths[depthidx], K, renderer, vtxs, object_name, diameter, w, syms=symTs, rankbest_hyp=False
                 )
                 allvsd.append(imgvsd)
                 allmssd.append(imgmssd)
@@ -323,12 +327,13 @@ def get_imgmatches(ests, imgname):
     return list(filter(lambda x: Path(x["img_path"]).stem == imgname, ests))
 
 
-def evaluate_singleest(ests, imgname, R_gt, t_gt, depth_test, K, renderer: Renderer, vtxs, object_name, coarse=False, syms=None, rankbest_hyp=False):
+def evaluate_singleest(ests, imgname, R_gt, t_gt, depth_test, K, renderer: Renderer, vtxs, object_name, diameter, w, coarse=False, syms=None, rankbest_hyp=False):
     if syms is None:
         syms = []
     # fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     imgmatches = get_imgmatches(ests, imgname)
     imgvsd = []
+    imgvsdall = []
     imgmssd = []
     imgmspd = []
     for j, imgmatch in enumerate(imgmatches):
@@ -341,10 +346,12 @@ def evaluate_singleest(ests, imgname, R_gt, t_gt, depth_test, K, renderer: Rende
         else:
             R_est = np.array(imgmatch["R"])
             t_est = np.array(imgmatch["t"])
-        vsdres = vsd(R_est, t_est, R_gt, t_gt, depth_test, K, 0.01, [0.2], False, None, renderer, object_name, cost_type="step")
+        taus = [0.05 * i for i in range(1, 11)]  # 5% to 50% of diameter
+        vsdres = vsd(R_est, t_est, R_gt, t_gt, depth_test, K, 0.02, taus, True, diameter, renderer, object_name, cost_type="step")
         mssdres = mssd(R_est, t_est, R_gt, t_gt, vtxs, syms)
         mspdres = mspd(R_est, t_est.reshape(3, 1), R_gt, t_gt, K, vtxs, syms)
-        imgvsd.append(vsdres[0])
+        imgvsd.append(np.mean(vsdres))
+        imgvsdall.append(vsdres)
         imgmssd.append(mssdres)
         imgmspd.append(mspdres)
     # choose hypothesis with majority best metric between vsd, mssd, mspd
@@ -353,4 +360,20 @@ def evaluate_singleest(ests, imgname, R_gt, t_gt, depth_test, K, renderer: Rende
     winnings[np.argmin(imgmssd)] += 1
     winnings[np.argmin(imgmspd)] += 1
     probablybest = np.argmax(winnings)
-    return imgvsd[probablybest], imgmssd[probablybest], imgmspd[probablybest]
+    return avg_recalls(imgvsdall[probablybest], imgmssd[probablybest], imgmspd[probablybest], diameter, w)
+
+
+def avg_recalls(vsds, mssd, mspd, diameter, w):
+    theta_vsd = [0.05 * i for i in range(1, 11)]  # 0.05 to 0.5, step of 0.05
+    theta_mssd = np.array([0.05 * i for i in range(1, 11)])  # 5% to 50% of diameter, step of 5%
+    r = w / 640
+    theta_mspd = np.array([5 * r * i for i in range(1, 11)])  # 5r to 50r, step of 5r
+    vsds = np.array(vsds)
+    vsd_allrecalls = []
+    for theta_vsd_single in theta_vsd:
+        vsd_recall_single = np.mean(vsds < theta_vsd_single)
+        vsd_allrecalls.append(vsd_recall_single)
+    recall_vsd = np.mean(vsd_allrecalls)
+    recall_mssd = np.mean(mssd < (theta_mssd * diameter))
+    recall_mspd = np.mean(mspd < theta_mspd)
+    return recall_vsd, recall_mssd, recall_mspd
