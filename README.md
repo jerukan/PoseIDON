@@ -1,4 +1,4 @@
-# Mapping Marine Sediment Burial Through Deep Learning-Based Pose Estimation
+# Leveraging 6DoF Pose Foundation Models For Mapping Marine Sediment Burial
 
 PoseIDON: **Pose** **I**dentification for **D**epth of **O**bjects via foundation model **N**etworks
 
