@@ -11,6 +11,7 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
+from PIL import Image
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
 from sklearn.neighbors import KDTree
@@ -48,7 +49,7 @@ def get_surface_line_traces(
     return traces
 
 
-def get_plane_zup(pts, n=10, z=0, square_grid=False):
+def get_plane_zup(pts, n=10, z=0, square_grid=False, T: v3d.Transform=None):
     pts = np.array(pts)
     xmin = np.min(pts[:, 0])
     xmax = np.max(pts[:, 0])
@@ -73,7 +74,18 @@ def get_plane_zup(pts, n=10, z=0, square_grid=False):
     xx, yy = np.meshgrid(np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny))
     zz = np.zeros_like(xx)
     zz.fill(z)
+    shape = xx.shape
+    if T is not None:
+        pts = T @ np.array([xx.reshape(-1), yy.reshape(-1), zz.reshape(-1)]).T
+        xx, yy, zz = pts[:, 0].reshape(shape), pts[:, 1].reshape(shape), pts[:, 2].reshape(shape)
     return xx, yy, zz
+
+
+def get_plane_traces(pts, n=10, z=0, square_grid=False, T: v3d.Transform=None):
+    xx, yy, zz = get_plane_zup(pts, n=n, z=z, square_grid=square_grid, T=T)
+    planetrace = go.Surface(x=xx, y=yy, z=zz, opacity=0.3, colorscale="purples", colorbar=None)
+    linetraces = get_surface_line_traces(xx, yy, zz, color="#101010", width=1, step=1)
+    return (planetrace, *linetraces)
 
 
 def get_ray_trace(
@@ -153,7 +165,7 @@ def get_line3d_trace(
     )
 
 
-def get_trimesh_traces(mesh: trimesh.Trimesh, surfcolor: str=None, wirecolor: str=None) -> Tuple[go.Mesh3d, go.Scatter3d]:
+def get_trimesh_traces(mesh: trimesh.Trimesh, surfcolor: str=None, wirecolor: str=None, wirewidth=None) -> Tuple[go.Mesh3d, go.Scatter3d]:
     """
     Gets the plotly traces for mesh surface and mesh wireframe by ripping them from
     the figure made by figure factory.
@@ -175,8 +187,49 @@ def get_trimesh_traces(mesh: trimesh.Trimesh, surfcolor: str=None, wirecolor: st
     meshtrace: go.Mesh3d = traces[0]
     wireframetrace: go.Scatter3d = traces[1]
     if wirecolor is not None:
-        wireframetrace = wireframetrace.update({"line": {"color": wirecolor}})
+        wireframetrace = wireframetrace.update({"line": {"color": wirecolor, "width": wirewidth}})
     return meshtrace, wireframetrace
+
+
+def get_resized_pc_trace(pc: v3d.Point3d, markersize):
+    return pc.make_traces()[0].update(
+        {"marker": {"size": markersize}}
+    )
+
+
+def get_cam_imgsurf_trace(cam: v3d.Camera, img: Image.Image, res_scale=1.0, opacity=1.0) -> go.Surface:
+    """
+    Creates a surface with an image as its color in a v3d camera viewport. The image will be at
+    the base of the camera "pyramid", like most camera visualizations.
+
+    This will be slow and laggy with most full resolution images, so it's probably best to
+    set res_scale < 1.0 since you probably won't notice the difference.
+    """
+    w, h = img.width, img.height
+    if res_scale != 1.0:
+        w = int(w * res_scale)
+        h = int(h * res_scale)
+        img = img.resize((w, h), Image.Resampling.LANCZOS)
+    Pimg = img.convert("P", palette="WEB", dither=None)
+    idx_to_color = np.array(Pimg.getpalette()).reshape((-1, 3))
+    colorscale = [[i / 255.0, "rgb({}, {}, {})".format(*rgb)] for i, rgb in enumerate(idx_to_color)]
+    # plotly just straight ignores the colorscale if a value for 1 is not in it
+    if colorscale[-1][0] < 1:
+        colorscale.append([1, "rgb(0, 0, 0)"])
+    corners = cam.spec.replace(fig_config=cam.fig_config)._get_camera_lines()[0][4:]
+    corners = cam.world_from_cam @ corners
+    widthfracs = np.linspace(0, 1, w)
+    heightfracs = np.linspace(0, 1, h)
+    widths, heights = np.meshgrid(widthfracs, heightfracs)
+    widthvec = corners[2] - corners[0]
+    heightvec = corners[1] - corners[0]
+    planegrid = corners[0] + (widths[..., None] * [widthvec]) + (heights[..., None] * [heightvec])
+    xx, yy, zz = planegrid[..., 0], planegrid[..., 1], planegrid[..., 2]
+    surf = go.Surface(
+        x=xx, y=yy, z=zz, opacity=opacity, cmin=0,
+        cmax=255, surfacecolor=Pimg, colorscale=colorscale, showscale=False
+    )
+    return surf
 
 
 def generate_domain(lats, lons, padding=0):

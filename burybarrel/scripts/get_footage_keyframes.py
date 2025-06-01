@@ -11,7 +11,7 @@ import yaml
 
 from burybarrel import get_logger
 from burybarrel.utils import denoise_nav_depth
-from burybarrel.image import apply_clahe, delete_imgs_in_dir, combine_masks
+from burybarrel.image import apply_clahe, delete_imgs_in_dir, combine_masks, imgs_from_dir, imgs_from_paths
 
 
 logger = get_logger(__name__)
@@ -59,6 +59,7 @@ def get_footage_keyframes(cfg_path, names, overwrite):
         cfg_in = {
             **defaults,
             **cfg,
+            "name": name,
             "overwrite": overwrite,
         }
         try:
@@ -69,50 +70,117 @@ def get_footage_keyframes(cfg_path, names, overwrite):
 
 
 @click.command()
-@click.option("-i", "--input", "input_path", required=False, type=click.Path(exists=True, dir_okay=False), help="input video path")
-@click.option("-o", "--output", "output_dir", required=False, type=click.Path(file_okay=False), help="output dir (default: parent directory of video)")
-@click.option("-t", "--time", "start_time", required=False, type=click.STRING, help="start time of the video (ISO 8601 format) (YYYY-MM-DDTHH:MM:SS)")
-@click.option("--tz", "timezone", required=False, type=click.STRING, help="timezone from Olson tz database")
 @click.option(
-    "--fps", "fps", required=True, default=25, show_default=True, type=click.INT, help="Video FPS"
-)
-@click.option("--step", "step", required=True, type=click.INT, help="Number of frames between each image")
-@click.option(
-    "--crop", "crop", default=False, type=click.STRING, help="4 integers separated by commas: top left x, top left y, width, height"
-)
-@click.option(
-    "--mask", "maskpath", required=False, type=click.Path(exists=True, dir_okay=False), help="path to mask"
+    "-c",
+    "--config",
+    "cfg_path",
+    default=DEFAULT_CFG_PATH,
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    show_default=True,
+    help="video informaton yaml file"
 )
 @click.option(
-    "--contrast",
-    "increase_contrast",
+    "-n",
+    "--name",
+    "name",
+    required=True,
+    type=click.STRING,
+    help="dataset name in config",
+)
+@click.option(
+    "--num",
+    "n_samps",
+    required=True,
+    type=click.INT,
+    help="number of total random samples to take",
+)
+@click.option(
+    "--overwrite",
+    "overwrite",
     is_flag=True,
     default=False,
     type=click.BOOL,
-    help="If provided, increases contrast of the images",
+    help="Overwrite existing image/data in corresponding output directories, otherwise skip"
 )
-@click.option("--navpath", "navpath", type=click.Path(exists=True, dir_okay=False))
-@click.option(
-    "--denoisedepth",
-    "denoise_depth",
-    is_flag=True,
-    default=False,
-    type=click.BOOL,
-    help="Only used when navpath is provided; naively denoises depth data"
-)
-def get_footage_keyframes_cmd_old(
-    **kwargs
-):
-    if "crop" in kwargs:
-        croparg = kwargs["crop"]
-        if croparg is not None:
-            if croparg.count(",") != 3:
-                raise ValueError("crop argument must have 4 values separated by commas")
-            kwargs["crop"] = [int(x) for x in croparg.split(",")]
-    _get_footage_keyframes(**kwargs)
+def subset_footage_keyframes(cfg_path, name, n_samps, overwrite):
+    with open(cfg_path, "rt") as f:
+        cfg_all = yaml.safe_load(f)
+    defaults = cfg_all["default"]
+    cfg = cfg_all[name]
+    cfg = {
+        **defaults,
+        **cfg,
+        "overwrite": overwrite,
+    }
+    vidpath = Path(cfg["input_path"])
+    outdir_orig = Path(cfg["output_dir"]) / name
+    imgpaths_orig, _ = imgs_from_dir(outdir_orig / "rgb")
+    n_imgs = len(imgpaths_orig)
+    object_name = cfg["object_name"]
+    crop = cfg["crop"]
+    bbox = crop
+    increase_contrast = cfg["increase_contrast"]
+    description = cfg["description"]
+    maskpaths = cfg["maskpaths"]
+    mask = None
+    if maskpaths is not None:
+        masks = imgs_from_paths(maskpaths, asarray=True, mode="L")
+        mask = combine_masks(masks)
+    for i in tqdm(range(n_samps)):
+        outdir = Path(cfg["output_dir"]) / f"{name}-sample{str(i).zfill(3)}"
+        outdir.mkdir(parents=True, exist_ok=True)
+        imgdir = outdir / "rgb"
+        rawdir = outdir / "unprocessed"
+        imgdir.mkdir(parents=True, exist_ok=True)
+        rawdir.mkdir(parents=True, exist_ok=True)
+        if not overwrite:
+            # info.json is the last thing to be written, so it indicates data there is complete
+            if (outdir / "info.json").exists():
+                logger.info(f"Output directory {outdir} already has complete keyframes + metadata, skipping")
+                continue
+        vid = cv2.VideoCapture(str(vidpath))
+        nframes = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        fnames = []
+
+        cnt = 0
+        checkedframes = set()
+        while cnt < n_imgs:
+            # try try again
+            i = np.random.randint(0, nframes)
+            if i in checkedframes:
+                continue
+            checkedframes.add(i)
+            vid.set(cv2.CAP_PROP_POS_FRAMES, i)
+            _, frame = vid.read()
+            if frame is None:
+                # invalid frame
+                continue
+            fname = f"frame{str(cnt).zfill(4)}.png"
+            cv2.imwrite(str(rawdir / fname), frame)
+            if increase_contrast:
+                frame = apply_clahe(frame, clipLimit=2.0, tileGridSize=(8, 8))
+            if mask is not None:
+                frame = cv2.inpaint(frame, mask, 3, cv2.INPAINT_TELEA)
+            if crop:
+                cropped = frame[bbox[1] : bbox[1] + bbox[3], bbox[0] : bbox[0] + bbox[2]]
+            else:
+                cropped = frame
+            fnames.append(fname)
+            cv2.imwrite(str(imgdir / fname), cropped)
+            cnt += 1
+        infodict = {
+            "object_name": "placeholder.ply" if object_name is None else object_name,
+            "description": "" if description is None else description,
+        }
+        with open(outdir / "info.json", "wt") as f:
+            json.dump(infodict, f, indent=4)
+        
 
 
 def _get_footage_keyframes(
+    name=None,
     input_path=None,
     output_dir=None,
     start_time=None,
@@ -140,9 +208,13 @@ def _get_footage_keyframes(
     """
     vidpath = Path(input_path)
     if output_dir is None:
-        outdir = vidpath.parent / vidpath.stem
+        outdir = vidpath.parent
     else:
-        outdir = Path(output_dir) / vidpath.stem
+        outdir = Path(output_dir)
+    if name is None:
+        outdir = outdir / vidpath.stem
+    else:
+        outdir = outdir / name
     if not overwrite:
         # info.json is the last thing to be written, so it indicates data there is complete
         if (outdir / "info.json").exists():
@@ -156,9 +228,7 @@ def _get_footage_keyframes(
     
     mask = None
     if maskpaths is not None:
-        if not isinstance(maskpaths, (list, tuple, np.ndarray)):
-            maskpaths = [maskpaths]
-        masks = np.array([cv2.imread(maskpath, cv2.IMREAD_GRAYSCALE) for maskpath in maskpaths])
+        masks = imgs_from_paths(maskpaths, asarray=True, mode="L")
         mask = combine_masks(masks)
 
     # these are the only things that need to get deleted

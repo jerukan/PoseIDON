@@ -22,12 +22,14 @@ import visu3d as v3d
 import yaml
 
 from bop_toolkit.bop_toolkit_lib.pose_error import vsd, mssd, mspd
-from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations
-from bop_toolkit.bop_toolkit_lib.renderer import create_renderer
+from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations, depth_im_to_dist_im_fast
+from bop_toolkit.bop_toolkit_lib.renderer import create_renderer, Renderer
+from bop_toolkit.bop_toolkit_lib.visibility import estimate_visib_mask_gt, estimate_visib_mask_est
 
 from burybarrel import config, get_logger
 import burybarrel.colmap_util as cutil
 from burybarrel.image import render_v3d, imgs_from_dir
+from burybarrel.utils import name_idx_from_paths
 
 
 logger = get_logger(__name__)
@@ -91,10 +93,16 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
     for singleresdir in tqdm.tqdm(allresdirs):
         logger.info(f"processing results for following dataset: {singleresdir}")
         dataname = singleresdir.name
+        if "sample" in dataname:
+            logger.info(f"Skipping {dataname} because it was a subsampled dataset")
+            continue
         singledatadir = datadir / dataname
         fitoutdir = singleresdir / "fit-output"
         if not fitoutdir.exists():
             logger.info(f"Skipping {dataname} because fit-output does not exist")
+            continue
+        if not singledatadir.exists():
+            logger.info(f"Skipping {dataname} because datadir does not exist")
             continue
 
         with open(singledatadir / "gt_obj2cam.json", "rt") as f:
@@ -115,25 +123,31 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         # lets multiple renderers exist
         renderer.set_current()
 
-        # gt masks (may not exist)
-        masksdir = singledatadir / "mask"
-        maskpaths = None
-        masks = None
-        if masksdir.exists():
-            maskpaths, masks = imgs_from_dir(masksdir, grayscale=True, asarray=True)
-            if len(masks) != len(gtposes):
-                maskpaths = None
-                masks = None
-            else:
-                masks = masks / 255
+        # gt masks from gt renders (should be 1-1 with gt poses)
+        masksdir = singledatadir / "mask-render"
+        maskpaths, masks = imgs_from_dir(masksdir, mode="L", asarray=True)
+        # test depths from gt renders (should be 1-1 with gt poses)
+        depthsdir = singledatadir / "depth-render"
+        depthpaths, depths = imgs_from_dir(depthsdir, mode="I;16", asarray=True)
+        # convert from mm to m
+        depths = depths / 1000.0
         # predicted SAM masks
         sammasksdir = singleresdir / "sam-masks"
-        sammaskpaths, sammasks = imgs_from_dir(sammasksdir, grayscale=True, asarray=True)
-        sammasks = sammasks / 255
+        sammaskpaths, sammasks = imgs_from_dir(sammasksdir, mode="L", asarray=True)
 
         gt_Rs = np.array([gtpose["R"] for gtpose in gtposes])
         gt_ts = np.array([gtpose["t"] for gtpose in gtposes])[..., None]
-        imgnames = [Path(gtpose["img_path"]).name for gtpose in gtposes]
+        imgnames = [Path(gtpose["img_path"]).stem for gtpose in gtposes]
+
+        dice_scores = []
+        for i, imgname in enumerate(imgnames):
+            sammaskidx = name_idx_from_paths(imgname, sammaskpaths)
+            if sammaskidx < 0:
+                continue
+            sammask = sammasks[sammaskidx]
+            mask = masks[i]
+            dice_scores.append(dice(mask, sammask))
+        avg_dice = np.mean(dice_scores)
 
         fx, fy, cx, cy = caminfo["fx"], caminfo["fy"], caminfo["cx"], caminfo["cy"]
         K = np.array([
@@ -146,6 +160,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         symTs = get_symmetry_transformations(allobjectinfo[object_name], 0.01)
 
         mesh: trimesh.Trimesh = trimesh.load(objectdir / object_name)
+        diameter = mesh.bounding_sphere.primitive.radius * 2
         vtxs = np.array(mesh.vertices)
 
         # raw foundpose metrics
@@ -161,16 +176,17 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         foundposerefmspd = []
         for i, imgname in enumerate(imgnames):
             imgmatches = get_imgmatches(ests, imgname)
+            depthidx = name_idx_from_paths(imgname, depthpaths)
             # will fail if masking in foundpose fails
             if len(imgmatches) == 0:
                 continue
             R_gt = gt_Rs[i]
             t_gt = gt_ts[i]
             coarsevsd, coarsemssd, coarsemspd = evaluate_singleest(
-                ests, imgname, R_gt, t_gt, K, renderer, vtxs, object_name, coarse=True, syms=symTs, rankbest_hyp=rankbest_hyp, mask_gt=masks[i] if masks is not None else None
+                ests, imgname, R_gt, t_gt, depths[depthidx], K, renderer, vtxs, object_name, diameter, w, coarse=True, syms=symTs, rankbest_hyp=rankbest_hyp
             )
             refvsd, refmssd, refmspd = evaluate_singleest(
-                ests, imgname, R_gt, t_gt, K, renderer, vtxs, object_name, coarse=False, syms=symTs, rankbest_hyp=rankbest_hyp, mask_gt=masks[i] if masks is not None else None
+                ests, imgname, R_gt, t_gt, depths[depthidx], K, renderer, vtxs, object_name, diameter, w, coarse=False, syms=symTs, rankbest_hyp=rankbest_hyp
             )
             foundposecoarsevsd.append(coarsevsd)
             foundposecoarsemssd.append(coarsemssd)
@@ -186,6 +202,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "multiview_fitted": False,
             "pose_type": "coarse",
             "use_icp": False,
+            "reconstr_type": "none",
             "burial_error_vol": -1,
             "burial_error_z": -1,
             "burial_error_depth": -1,
@@ -202,6 +219,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "lon": datainfo["lon"],
             "depth": datainfo["depth"],
             "object_name": datainfo["object_name"],
+            "avg_dice": float(avg_dice),
         }
         refestmetrics = {
             "dataset": dataname,
@@ -211,6 +229,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "multiview_fitted": False,
             "pose_type": "refined",
             "use_icp": False,
+            "reconstr_type": "none",
             "burial_error_vol": -1,
             "burial_error_z": -1,
             "burial_error_depth": -1,
@@ -227,6 +246,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "lon": datainfo["lon"],
             "depth": datainfo["depth"],
             "object_name": datainfo["object_name"],
+            "avg_dice": float(avg_dice),
         }
         allestmetrics.append(coarseestmetrics)
         allestmetrics.append(refestmetrics)
@@ -241,11 +261,16 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                 ests = yaml.safe_load(f)
             with open(estinfopath, "rt") as f:
                 estinfo = yaml.safe_load(f)
+            # skip old estimates without reconstruction type recorded
+            if "reconstr_type" not in estinfo.keys():
+                logger.info(f"Skipping old fit results {fitdir}")
+                continue
             allvsd = []
             allmssd = []
             allmspd = []
             for i, imgname in enumerate(imgnames):
                 imgmatches = get_imgmatches(ests, imgname)
+                depthidx = name_idx_from_paths(imgname, depthpaths)
                 if len(imgmatches) == 0:
                     continue
                 R_gt = gt_Rs[i]
@@ -253,7 +278,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                 # rankbest_hyp is false since multiview fit already uses all hypotheses
                 # thus there is only 1 hypothesis per image
                 imgvsd, imgmssd, imgmspd = evaluate_singleest(
-                    ests, imgname, R_gt, t_gt, K, renderer, vtxs, object_name, syms=symTs, rankbest_hyp=False, mask_gt=masks[i] if masks is not None else None
+                    ests, imgname, R_gt, t_gt, depths[depthidx], K, renderer, vtxs, object_name, diameter, w, syms=symTs, rankbest_hyp=False
                 )
                 allvsd.append(imgvsd)
                 allmssd.append(imgmssd)
@@ -266,6 +291,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                 "multiview_fitted": True,
                 "pose_type": "coarse" if estinfo["use_coarse"] else "refined",
                 "use_icp": estinfo["use_icp"],
+                "reconstr_type": estinfo["reconstr_type"],
                 "burial_error_vol": abs(estinfo["burial_ratio_vol"] - datainfo["burial_ratio_vol"]),
                 "burial_error_z": abs(estinfo["burial_ratio_z"] - datainfo["burial_ratio_z"]),
                 "burial_error_depth": abs(estinfo["burial_depth"] - datainfo["burial_depth"]),
@@ -282,9 +308,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                 "lon": datainfo["lon"],
                 "depth": datainfo["depth"],
                 "object_name": datainfo["object_name"],
-                # "all_vsd": np.array(allvsd).tolist(),
-                # "all_mssd": np.array(allmssd).tolist(),
-                # "all_mspd": np.array(allmspd).tolist(),
+                "avg_dice": float(avg_dice),
             }
             allestmetrics.append(estmetrics)
 
@@ -293,20 +317,23 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
         df.to_csv(f, index=False)
 
 
+def dice(mask_true, mask_pred):
+    mask_true = mask_true > 0
+    mask_pred = mask_pred > 0
+    return (2.0 * np.sum(mask_true & mask_pred)) / (np.sum(mask_true) + np.sum(mask_pred))
+
+
 def get_imgmatches(ests, imgname):
-    return list(filter(lambda x: Path(x["img_path"]).name == imgname, ests))
+    return list(filter(lambda x: Path(x["img_path"]).stem == imgname, ests))
 
 
-def evaluate_singleest(ests, imgname, R_gt, t_gt, K, renderer, vtxs, object_name, coarse=False, syms=None, rankbest_hyp=False, mask_gt=None):
+def evaluate_singleest(ests, imgname, R_gt, t_gt, depth_test, K, renderer: Renderer, vtxs, object_name, diameter, w, coarse=False, syms=None, rankbest_hyp=False):
     if syms is None:
         syms = []
-    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
-    # no test depth, just use ground truth with ground truth mask
-    depth_test = renderer.render_object(object_name, R_gt, t_gt, fx, fy, cx, cy)["depth"]
-    if mask_gt is not None:
-        depth_test = mask_gt * depth_test
+    # fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     imgmatches = get_imgmatches(ests, imgname)
     imgvsd = []
+    imgvsdall = []
     imgmssd = []
     imgmspd = []
     for j, imgmatch in enumerate(imgmatches):
@@ -319,10 +346,12 @@ def evaluate_singleest(ests, imgname, R_gt, t_gt, K, renderer, vtxs, object_name
         else:
             R_est = np.array(imgmatch["R"])
             t_est = np.array(imgmatch["t"])
-        vsdres = vsd(R_est, t_est, R_gt, t_gt, depth_test, K, 0.2, [0.2], False, None, renderer, object_name, "step")
+        taus = [0.05 * i for i in range(1, 11)]  # 5% to 50% of diameter
+        vsdres = vsd(R_est, t_est, R_gt, t_gt, depth_test, K, 0.02, taus, True, diameter, renderer, object_name, cost_type="step")
         mssdres = mssd(R_est, t_est, R_gt, t_gt, vtxs, syms)
         mspdres = mspd(R_est, t_est.reshape(3, 1), R_gt, t_gt, K, vtxs, syms)
-        imgvsd.append(vsdres[0])
+        imgvsd.append(np.mean(vsdres))
+        imgvsdall.append(vsdres)
         imgmssd.append(mssdres)
         imgmspd.append(mspdres)
     # choose hypothesis with majority best metric between vsd, mssd, mspd
@@ -331,4 +360,20 @@ def evaluate_singleest(ests, imgname, R_gt, t_gt, K, renderer, vtxs, object_name
     winnings[np.argmin(imgmssd)] += 1
     winnings[np.argmin(imgmspd)] += 1
     probablybest = np.argmax(winnings)
-    return imgvsd[probablybest], imgmssd[probablybest], imgmspd[probablybest]
+    return avg_recalls(imgvsdall[probablybest], imgmssd[probablybest], imgmspd[probablybest], diameter, w)
+
+
+def avg_recalls(vsds, mssd, mspd, diameter, w):
+    theta_vsd = [0.05 * i for i in range(1, 11)]  # 0.05 to 0.5, step of 0.05
+    theta_mssd = np.array([0.05 * i for i in range(1, 11)])  # 5% to 50% of diameter, step of 5%
+    r = w / 640
+    theta_mspd = np.array([5 * r * i for i in range(1, 11)])  # 5r to 50r, step of 5r
+    vsds = np.array(vsds)
+    vsd_allrecalls = []
+    for theta_vsd_single in theta_vsd:
+        vsd_recall_single = np.mean(vsds < theta_vsd_single)
+        vsd_allrecalls.append(vsd_recall_single)
+    recall_vsd = np.mean(vsd_allrecalls)
+    recall_mssd = np.mean(mssd < (theta_mssd * diameter))
+    recall_mspd = np.mean(mspd < theta_mspd)
+    return recall_vsd, recall_mssd, recall_mspd

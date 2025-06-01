@@ -20,6 +20,7 @@ from burybarrel.image import render_v3d, render_models, to_contour, delete_imgs_
 from burybarrel.camera import load_v3dcams
 from burybarrel.utils import add_to_json
 from burybarrel.plotting import get_surface_line_traces, get_ray_trace
+from burybarrel.mesh import recolor_mesh
 
 
 logger = get_logger(__name__)
@@ -148,8 +149,34 @@ def generate_gt_single(name, datadir, resdir, objdir, render_overlays=True, over
             rgb_primitives, _, _ = render_models(camscaled[i], [mesh, plane], [T_gt, T_floor_gt], light_intensity=200.0, flags=pyrender.RenderFlags.NONE)
             Image.fromarray(rgb_primitives).save(gtoverlaydir / f"{imgpath.stem}_primitives.jpg")
     
-    # idk
-    floornorm = T_floor_gt.apply_to_dir(np.array([0, 0, 1]))
+    # mask generation
+    # Not exactly ground truth mask, but using CAD model GT pose. It may be slightly
+    # misaligned with the actual object in the image from reconstruction error or missing
+    # biological growth
+    rendermaskdir = datadir / "mask-render"
+    renderdepthdir = datadir / "depth-render"
+    if rendermaskdir.exists():
+        delete_imgs_in_dir(rendermaskdir)
+    if renderdepthdir.exists():
+        delete_imgs_in_dir(renderdepthdir)
+    rendermaskdir.mkdir(exist_ok=True)
+    renderdepthdir.mkdir(exist_ok=True)
+    plane = trimesh.creation.box(extents=(30, 30, 0.01))
+    for i, img in enumerate(tqdm(imgs, desc="Generating masks and depths from render")):
+        imgpath = imgpaths[i]
+        rgb_maskboth, depth_maskboth, _ = render_models(
+            camscaled[i],
+            [recolor_mesh(mesh, [255, 0, 0]), recolor_mesh(plane, [0, 255, 0])],
+            [T_gt, T_floor_gt],
+            flags=pyrender.RenderFlags.FLAT
+        )
+        objmask = np.all(rgb_maskboth == [255, 0, 0], axis=-1)
+        objmask = objmask.astype(np.uint8) * 255
+        depth_mm = (depth_maskboth * 1000).astype(np.uint16)
+        Image.fromarray(objmask, mode="L").save(rendermaskdir / f"{imgpath.stem}.png")
+        Image.fromarray(depth_mm, mode="I;16").save(renderdepthdir / f"{imgpath.stem}.png")
+
+    # burial state calculation
     zup_mesh_T = T_floor_gt.inv @ T_gt
     zup_mesh = mesh.copy().apply_transform(zup_mesh_T.matrix4x4)
     mesh_zvals = zup_mesh.vertices[:, 2]
@@ -163,10 +190,10 @@ def generate_gt_single(name, datadir, resdir, objdir, render_overlays=True, over
     burial_depth = abs(zmin)
     logger.info(f"vol burial: {burial_ratio_vol}, z level burial: {burial_ratio_z}, depth: {burial_depth}")
 
-    xx, yy = np.meshgrid(np.linspace(-0.2, 0.2, 10), np.linspace(-0.2, 0.2, 10))
-    zz = np.zeros_like(xx)
-    raycent = np.mean(zup_mesh.vertices, axis=0)
-    plane = go.Surface(x=xx, y=yy, z=zz, opacity=0.2)
+    # xx, yy = np.meshgrid(np.linspace(-0.2, 0.2, 10), np.linspace(-0.2, 0.2, 10))
+    # zz = np.zeros_like(xx)
+    # raycent = np.mean(zup_mesh.vertices, axis=0)
+    # plane = go.Surface(x=xx, y=yy, z=zz, opacity=0.2)
     # v3d.make_fig(v3d.Point3d(p=zup_mesh_T @ mesh.vertices), plane, *get_surface_line_traces(xx, yy, zz), get_ray_trace(raycent, [0, 0, 1], color="#ff4d00", length=0.1, width=5, markersize=10))
 
     obj2cams_truth = [cam.world_from_cam.inv @ T_gt for cam in camscaled]
