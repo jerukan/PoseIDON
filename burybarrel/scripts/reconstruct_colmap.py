@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import time
 
 import click
 import matplotlib.pyplot as plt
@@ -14,7 +15,7 @@ import trimesh
 import visu3d as v3d
 import yaml
 
-from burybarrel import get_logger, add_file_handler, log_dir
+from burybarrel import get_logger, add_file_handler, log_dir, config
 import burybarrel.colmap_util as cutil
 from burybarrel.image import imgs_from_dir
 from burybarrel.camera import save_v3dcams, RadialCamera
@@ -23,8 +24,6 @@ from burybarrel.mesh import load_mesh
 
 logger = get_logger(__name__)
 add_file_handler(logger, log_dir / "colmap_reconstruct.log")
-DEFAULT_DATA_DIR_LOCAL = Path("data/input_data/")
-DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
 
 
 @click.command()
@@ -41,7 +40,7 @@ DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     "-d",
     "--datadir",
     "data_dir",
-    default=DEFAULT_DATA_DIR_LOCAL,
+    default=config.DEFAULT_DATA_DIR_LOCAL,
     required=True,
     type=click.Path(exists=True, file_okay=False),
     show_default=True,
@@ -51,7 +50,7 @@ DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     "-o",
     "--outdir",
     "out_dir",
-    default=DEFAULT_RESULTS_DIR_LOCAL,
+    default=config.DEFAULT_RESULTS_DIR_LOCAL,
     required=True,
     type=click.Path(file_okay=False),
     show_default=True,
@@ -71,7 +70,15 @@ DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     is_flag=True,
     default=False,
     type=click.BOOL,
-    help="Whether to run dense + mesh + texture reconstruction (requires sparse to be run first)",
+    help="Whether to run dense reconstruction (requires sparse to be run first)",
+)
+@click.option(
+    "--mesh",
+    "mesh",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Whether to run mesh + texture reconstruction (requires sparse + dense to be run first)",
 )
 @click.option(
     "--overwrite",
@@ -88,7 +95,7 @@ DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     type=click.INT,
     help="Max number of times to retry COLMAP reconstruction on failure",
 )
-def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrite, num_retries):
+def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, mesh, overwrite, num_retries):
     """
     3D reconstruction with COLMAP + OpenMVS via brute force.
 
@@ -111,15 +118,16 @@ def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrit
         logger.info(f"BEGINNING RECONSTRUCTION for dataset {dsname}")
         nretries_data = num_retries
         i = 0
+        colmap_t0 = time.time()
         while i < nretries_data:
             # COLMAP has a tendency of segfaulting randomly, there is no feasible way to
             # catch and prevent this
             sparse_iter = not sparse_success_dense_fail
             try:
                 if i == 0:
-                    _reconstruct_colmap(indir, outdir, sparse=sparse_iter, dense=dense, overwrite=overwrite)
+                    _reconstruct_colmap(indir, outdir, sparse=sparse_iter, dense=dense, mesh=mesh, overwrite=overwrite)
                 else:
-                    _reconstruct_colmap(indir, outdir, sparse=sparse_iter, dense=dense, overwrite=True)
+                    _reconstruct_colmap(indir, outdir, sparse=sparse_iter, dense=dense, mesh=mesh, overwrite=True)
                 success = True
                 logger.info(f"RECONSTRUCTION SUCCESS for dataset {dsname}")
                 break
@@ -141,10 +149,12 @@ def reconstruct_colmap(dataset_names, data_dir, out_dir, sparse, dense, overwrit
         if not success:
             logger.error(f"RECONSTRUCTION FAILURE to reconstruct dataset {dsname} after {num_retries} attempts")
             failures.append(dsname)
+        colmap_t1 = time.time()
+        logger.info(f"COLMAP + OpenMVS for {dsname} reconstruction took {colmap_t1 - colmap_t0:.2f} seconds")
     logger.info(f"FAILED RECONSTRUCTION DATASETS: {failures}")
 
 
-def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=True, dense=True, overwrite=False):
+def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=True, dense=True, mesh=True, overwrite=False):
     ### colmap code ###
     data_dir = Path(data_dir)
     img_dir = data_dir / "rgb"
@@ -318,7 +328,6 @@ def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=Tr
             for logpath in openmvs_out.glob("*.log"):
                 logpath.unlink()
             mvs_rel = os.path.relpath(mvs_dir, openmvs_out)  # openmvs converts colmap stuff to relative paths
-            print(mvs_rel)
             subprocess.run(["InterfaceCOLMAP", "-i", mvs_rel, "-o", "scene.mvs"], cwd=openmvs_out, check=True)
             subprocess.run(["DensifyPointCloud", "scene.mvs"], cwd=openmvs_out, check=True)
             # re-export dense point cloud since openmvs exports it in a format trimesh can't read
@@ -329,16 +338,18 @@ def _reconstruct_colmap(data_dir, out_dir, f_prior=None, c_prior=None, sparse=Tr
             # these .dmap depth maps aren't needed after densifying, and they take a lot of space
             for dmappath in openmvs_out.glob("*.dmap"):
                 dmappath.unlink()
-            subprocess.run(["ReconstructMesh", "scene_dense.mvs", "-p", "scene_dense.ply"], cwd=openmvs_out, check=True)
-            subprocess.run(["RefineMesh", "scene.mvs", "-m", "scene_dense_mesh.ply", "-o", "scene_dense_mesh_refine.mvs"], cwd=openmvs_out, check=True)
-            # export as obj since openmvs exports ply textures in a format blender can't read
-            subprocess.run(["TextureMesh", "scene_dense.mvs", "-m", "scene_dense_mesh_refine.ply", "-o", "scene_dense_mesh_refine_texture.mvs", "--export-type", "obj"], cwd=openmvs_out, check=True)
+            if mesh:
+                subprocess.run(["ReconstructMesh", "scene_dense.mvs", "-p", "scene_dense.ply"], cwd=openmvs_out, check=True)
+                subprocess.run(["RefineMesh", "scene.mvs", "-m", "scene_dense_mesh.ply", "-o", "scene_dense_mesh_refine.mvs"], cwd=openmvs_out, check=True)
+                # export as obj since openmvs exports ply textures in a format blender can't read
+                subprocess.run(["TextureMesh", "scene_dense.mvs", "-m", "scene_dense_mesh_refine.ply", "-o", "scene_dense_mesh_refine_texture.mvs", "--export-type", "obj"], cwd=openmvs_out, check=True)
         except Exception as e:
             raise OpenMVSSigSegvError("Segmentation fault during OpenMVS reconstruction") from e
 
 
 class InvalidCOLMAPError(Exception):
     pass
+
 
 class OpenMVSSigSegvError(Exception):
     pass

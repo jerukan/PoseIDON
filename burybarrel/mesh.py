@@ -1,5 +1,5 @@
 """
-Everything 3D model. Meshes, point clouds, and more.
+Functions for loading, saving, and modifying meshes.
 """
 from pathlib import Path
 from typing import Union
