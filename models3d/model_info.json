@@ -1,0 +1,46 @@
+{
+    "barrelsingle-scaled.ply": {
+        "symmetries_continuous": [
+            {
+                "axis": [0, 0, 1],
+                "offset": [0, 0, 0]
+            }
+        ],
+        "symmetries_discrete": [
+            [1, 0, 0, 0,
+              0, -1, 0, 0,
+              0, 0, -1, 0,
+              0, 0, 0, 1
+            ]
+        ],
+        "descriptor": "underwater barrel"
+    },
+    "depth_charge_mark_9_mod_1-scaled.ply": {
+        "symmetries_continuous": [
+            {
+                "axis": [0, 0, 1],
+                "offset": [0, 0, 0]
+            }
+        ],
+        "descriptor": "seabed underwater junk"
+    },
+    "mousetrap-scaled.ply": {
+        "symmetries_continuous": [
+            {
+                "axis": [0, 0, 1],
+                "offset": [0, 0, 0]
+            }
+        ],
+        "descriptor": "seabed underwater junk"
+    },
+    "smoke_float_mark_1-scaled.ply": {
+        "symmetries_continuous": [
+            {
+                "axis": [0, 0, 1],
+                "offset": [0, 0, 0]
+            }
+        ],
+        "descriptor": "seabed underwater junk"
+    },
+    "duck.ply": {"diameter": 108.999, "min_x": -52.2146, "min_y": -38.7038, "min_z": -42.8485, "size_x": 104.429, "size_y": 77.4076, "size_z": 85.697}
+}
