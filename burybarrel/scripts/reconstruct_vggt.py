@@ -5,7 +5,6 @@ import shutil
 import subprocess
 
 import click
-import dataclass_array as dca
 import matplotlib.pyplot as plt
 import numpy as np
 import PIL.Image
@@ -14,10 +13,7 @@ import pycolmap
 import quaternion
 import sqlite3
 from tqdm import tqdm
-import torch
-import torchvision.transforms as tvf
 import trimesh
-import visu3d as v3d
 import yaml
 
 from burybarrel import get_logger, add_file_handler, log_dir
@@ -103,6 +99,10 @@ logger = get_logger(__name__)
     help="Overwrite existing reconstructions if they exist",
 )
 def reconstruct_vggt(dataset_names, data_dir, out_dir, checkpoint_dir, device, img_limit, gt_only, overwrite):
+    import dataclass_array as dca
+    import torch
+    import visu3d as v3d
+
     from vggt.models.vggt import VGGT
     from vggt.utils.load_fn import load_and_preprocess_images
     from vggt.utils.pose_enc import pose_encoding_to_extri_intri

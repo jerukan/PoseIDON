@@ -151,10 +151,14 @@ def fit_foundpose_multiview(
     # foundpose results are used as reference for image ids
     name2imgid = {}
     name2imgpath = {}
-    obj2cams: v3d.Transform = []
+    obj2cams = []
     # camera for each hypothesis. If multiple hypotheses for each image, there will be
     # duplicate cameras in here
-    camhyps: v3d.Camera = []
+    camhyps = []
+    # template/hypothesis info
+    template_scores = []
+    img_ids = []
+    hyp_ids = []
     # colmap usually can't reconstruct every camera pose, so we can only fit the
     # foundpose results with a camera pose
     for fres in foundpose_estimates:
@@ -169,6 +173,10 @@ def fit_foundpose_multiview(
         valid_hyp = name in names
         if valid_hyp:
             camhyps.append(name2cam[name])
+            template_scores.append(fres["template_score"])
+            img_ids.append(fres["img_id"])
+            hyp_ids.append(fres["hypothesis_id"])
+
             if use_coarse:
                 R = fres["R_coarse"]
                 t = fres["t_coarse"]
@@ -179,8 +187,8 @@ def fit_foundpose_multiview(
             T[:3, :3] = R
             T[:3, 3] = np.reshape(t, -1)
             obj2cams.append(v3d.Transform.from_matrix(T))
-    obj2cams = dca.stack(obj2cams)
-    camhyps = dca.stack(camhyps)
+    obj2cams: v3d.Transform = dca.stack(obj2cams)
+    camhyps: v3d.Camera = dca.stack(camhyps)
 
     # this prevents a very strange error with einops
     # Tensor type unknown to einops <class 'numpy.ndarray'>
@@ -207,6 +215,13 @@ def fit_foundpose_multiview(
         seed=seed,
         relax_on_fail=True,
     )
+    with open(resdir / "fit-inliers.json", "wt") as f:
+        json.dump({
+            "template_scores": template_scores,
+            "inlieridxs": inlieridxs.tolist(),
+            "img_ids": img_ids,
+            "hyp_ids": hyp_ids,
+        }, f, indent=4)
 
     scalefactor = model.scale
     camscaled = scale_cams(cams, scalefactor)

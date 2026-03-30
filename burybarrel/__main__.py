@@ -1,10 +1,15 @@
 import click
 
-from burybarrel.scripts import (
-    create_masks, reconstruct_colmap, get_footage_keyframes, run_foundpose_fit,
-    run_foundpose, run_full_pipelines, get_metrics, gt_from_blender,
-    reconstruct_fast3r, reconstruct_vggt, subset_footage_keyframes
-)
+from burybarrel.scripts.create_masks import create_masks
+from burybarrel.scripts.reconstruct_colmap import reconstruct_colmap
+from burybarrel.scripts.get_footage_keyframes import get_footage_keyframes, subset_footage_keyframes
+from burybarrel.scripts.run_foundpose_fit import run_foundpose_fit
+from burybarrel.scripts.run_foundpose import run_foundpose
+from burybarrel.scripts.full_pipeline import run_full_pipelines
+from burybarrel.scripts.pipeline_metrics import get_metrics
+from burybarrel.scripts.gt_from_blender import gt_from_blender
+from burybarrel.scripts.reconstruct_fast3r import reconstruct_fast3r
+from burybarrel.scripts.reconstruct_vggt import reconstruct_vggt
 
 
 @click.group()

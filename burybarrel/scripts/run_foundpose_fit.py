@@ -2,8 +2,6 @@ from pathlib import Path
 
 import click
 
-from burybarrel.foundpose_fit import load_fit_write
-
 
 @click.command()
 @click.option(
@@ -57,8 +55,10 @@ from burybarrel.foundpose_fit import load_fit_write
     type=click.STRING,
 )
 def run_foundpose_fit(**kwargs):
+    from burybarrel.foundpose_fit import load_fit_write
     load_fit_write(**kwargs)
 
 
 def _run_foundpose_fit(datadir: Path, resdir: Path, objdir: Path, use_coarse: bool=False, use_icp: bool=False, seed=None, device=None):
+    from burybarrel.foundpose_fit import load_fit_write
     load_fit_write(datadir, resdir, objdir, use_coarse=use_coarse, use_icp=use_icp, seed=seed, device=device)

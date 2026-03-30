@@ -5,7 +5,6 @@ import shutil
 import subprocess
 
 import click
-import dataclass_array as dca
 import matplotlib.pyplot as plt
 import numpy as np
 import PIL.Image
@@ -14,10 +13,7 @@ import pycolmap
 import quaternion
 import sqlite3
 from tqdm import tqdm
-import torch
-import torchvision.transforms as tvf
 import trimesh
-import visu3d as v3d
 import yaml
 
 from burybarrel import get_logger, add_file_handler, log_dir
@@ -103,6 +99,10 @@ logger = get_logger(__name__)
     help="Overwrite existing reconstructions if they exist",
 )
 def reconstruct_fast3r(dataset_names, data_dir, out_dir, checkpoint_dir, device, img_limit, gt_only, overwrite):
+    import dataclass_array as dca
+    import torch
+    import visu3d as v3d
+
     from fast3r.dust3r.inference_multiview import inference
     from fast3r.models.fast3r import Fast3R
     from fast3r.models.multiview_dust3r_module import MultiViewDUSt3RLitModule
@@ -228,9 +228,6 @@ except ImportError:
     heif_support_enabled = False
 
 
-ImgNorm = tvf.Compose([tvf.ToTensor(), tvf.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-
 def _resize_pil_image(img, long_edge_size):
     S = max(img.size)
     if S > long_edge_size:
@@ -242,6 +239,8 @@ def _resize_pil_image(img, long_edge_size):
 
 
 def load_images(folder_or_list, size, square_ok=False, verbose=True, rotate_clockwise_90=False, crop_to_landscape=False, normalize=True):
+    import torchvision.transforms as tvf
+    ImgNorm = tvf.Compose([tvf.ToTensor(), tvf.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     """open and convert all images in a list or folder to proper input format for DUSt3R"""
     if isinstance(folder_or_list, str):
         if verbose:
