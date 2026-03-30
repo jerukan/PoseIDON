@@ -18,4 +18,4 @@ else:
     DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     DEFAULT_MODEL_DIR_LOCAL = Path("../models3d/")
 
-FOUNDPOSE_PYTHON_BIN_PATH = Path("/Users/yan569/miniconda3/envs/foundpose_cpu")
+FOUNDPOSE_PYTHON_BIN_PATH = Path("/Users/yan569/miniconda3/envs/foundpose_cpu_311/bin/python")

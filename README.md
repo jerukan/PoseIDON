@@ -34,7 +34,7 @@ cause problems. Probably.
 
 ```shell
 cd foundpose
-conda env create --name foundpose_gpu_311 --file environment.yml
+conda env create --name foundpose_gpu_311 --file environment_gpu.yml
 cd ..
 ```
 

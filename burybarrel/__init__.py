@@ -4,6 +4,10 @@ from pathlib import Path
 import sys
 sys.path.append(os.path.abspath(os.path.join("bop_toolkit")))
 
+# import this before anything else because importing it
+# after torch segfaults
+import open3d as o3d
+
 
 log_dir = Path("logs/")
 if not log_dir.is_dir():

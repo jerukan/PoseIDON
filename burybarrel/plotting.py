@@ -15,7 +15,6 @@ from PIL import Image
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
 from sklearn.neighbors import KDTree
-import torch
 import trimesh
 import visu3d as v3d
 

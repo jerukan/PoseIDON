@@ -6,29 +6,15 @@ from typing import List
 import sys
 
 import click
-import cv2
-import dataclass_array as dca
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import mitsuba as mi
 import numpy as np
 from PIL import Image
 import pandas as pd
-import pycolmap
-import pyrender
 import tqdm
 import trimesh
-import visu3d as v3d
 import yaml
 
-from bop_toolkit.bop_toolkit_lib.pose_error import vsd, mssd, mspd
-from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations, depth_im_to_dist_im_fast
-from bop_toolkit.bop_toolkit_lib.renderer import create_renderer, Renderer
-from bop_toolkit.bop_toolkit_lib.visibility import estimate_visib_mask_gt, estimate_visib_mask_est
-
 from burybarrel import config, get_logger
-import burybarrel.colmap_util as cutil
-from burybarrel.image import render_v3d, imgs_from_dir
 from burybarrel.utils import name_idx_from_paths
 
 
@@ -72,6 +58,16 @@ logger = get_logger(__name__)
     help="choose the best hypothesis with ground truth knowledge (for raw foundpose results) (this will obviously skew to better performance); otherwise, just choose the 0th hypothesis",
 )
 def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
+    import cv2
+    import pycolmap
+    import pyrender
+    import visu3d as v3d
+    from bop_toolkit.bop_toolkit_lib.pose_error import vsd, mssd, mspd
+    from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations, depth_im_to_dist_im_fast
+    from bop_toolkit.bop_toolkit_lib.renderer import create_renderer, Renderer
+    from bop_toolkit.bop_toolkit_lib.visibility import estimate_visib_mask_gt, estimate_visib_mask_est
+    import burybarrel.colmap_util as cutil
+    from burybarrel.image import render_v3d, imgs_from_dir
     # info about rankbest_hyp:
     # if estimations have multiple hypotheses per image, setting this true will choose the
     # best hypothesis with ground truth knowledge (this will obviously skew to better performance)
@@ -327,7 +323,7 @@ def get_imgmatches(ests, imgname):
     return list(filter(lambda x: Path(x["img_path"]).stem == imgname, ests))
 
 
-def evaluate_singleest(ests, imgname, R_gt, t_gt, depth_test, K, renderer: Renderer, vtxs, object_name, diameter, w, coarse=False, syms=None, rankbest_hyp=False):
+def evaluate_singleest(ests, imgname, R_gt, t_gt, depth_test, K, renderer, vtxs, object_name, diameter, w, coarse=False, syms=None, rankbest_hyp=False):
     if syms is None:
         syms = []
     # fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]

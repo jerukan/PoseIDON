@@ -4,24 +4,13 @@ import time
 import traceback
 
 import click
-import torch
 import yaml
 
 from burybarrel import config, get_logger, add_file_handler, log_dir
-from burybarrel.scripts.create_masks import _create_masks
-from burybarrel.scripts.run_foundpose import _run_foundpose
-from burybarrel.foundpose_fit import load_fit_write
 
 
 logger = get_logger(__name__)
 add_file_handler(logger, log_dir / "fullpipelineruns.log")
-
-
-cuda_count = torch.cuda.device_count()
-if cuda_count > 0:
-    default_devices = [f"cuda:{i}" for i in range(cuda_count)]
-else:
-    default_devices = ["cpu"]
 
 
 @click.command()
@@ -68,7 +57,7 @@ else:
     type=click.STRING,
     help="cuda devices to allocate",
     multiple=True,
-    default=default_devices,
+    default=None,
     show_default=True,
 )
 @click.option(
@@ -111,6 +100,10 @@ def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_all=Fa
 
     TODO: run colmap and openmvs from here too (uh installing openmvs without sudo is hard)
     """
+    import torch
+    if not devices:
+        cuda_count = torch.cuda.device_count()
+        devices = [f"cuda:{i}" for i in range(cuda_count)] if cuda_count > 0 else ["cpu"]
     datadir = Path(datadir)
     resdir = Path(resdir)
     objdir = Path(objdir)
@@ -130,24 +123,33 @@ def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_all=Fa
         devicetaskdict[devices[i % ndevices]].append(name)
     logger.info("DATASETS TO RUN ON EACH GPU:")
     logger.info(devicetaskdict)
-    # ProcessPoolExecutor should make more sense, but it just fucking instantly deadlocks
-    # from SAM imports and everything else and I can't be bothered to figure it out
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(devices)) as executor:
-        future_to_res = {
-            executor.submit(_run_pipelines_gpu, devnames, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit): (device, devnames)
-            for device, devnames in devicetaskdict.items()
-        }
-        for future in concurrent.futures.as_completed(future_to_res):
-            device, devnames = future_to_res[future]
-            try:
-                future.result()
-                logger.info(f"finished datasets {device}")
-            except Exception as e:
-                logger.error(f"exception in {device} for datasets {devnames}: {e}")
+    if len(devices) == 1:
+        # Run directly in the main thread so pyrender/pyglet signal handling works (macOS/MPS)
+        device = devices[0]
+        _run_pipelines_gpu(devicetaskdict[device], datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit)
+        logger.info(f"finished datasets {device}")
+    else:
+        # ProcessPoolExecutor should make more sense, but it just fucking instantly deadlocks
+        # from SAM imports and everything else and I can't be bothered to figure it out
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(devices)) as executor:
+            future_to_res = {
+                executor.submit(_run_pipelines_gpu, devnames, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit): (device, devnames)
+                for device, devnames in devicetaskdict.items()
+            }
+            for future in concurrent.futures.as_completed(future_to_res):
+                device, devnames = future_to_res[future]
+                try:
+                    future.result()
+                    logger.info(f"finished datasets {device}")
+                except Exception as e:
+                    logger.error(f"exception in {device} for datasets {devnames}: {e}")
     logger.info("FINISHED PROCESSING ALL DATASETS")
 
 
 def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):
+    from burybarrel.foundpose_fit import load_fit_write
+    from burybarrel.scripts.create_masks import _create_masks
+    from burybarrel.scripts.run_foundpose import _run_foundpose
     datadir = Path(datadir) / name
     resdir = Path(resdir) / name
     objdir = Path(objdir)
@@ -174,10 +176,10 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
         load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="colmap", seed=0, device=device, save_figs=True)
         fit_t1 = time.time()
         logger.info(f"Multiview fitting for dataset {name} took {fit_t1 - fit_t0:.2f} seconds")
-        if (resdir / "fast3r-out").exists():
-            load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="fast3r", seed=0, device=device)
-        if (resdir / "vggt-out").exists():
-            load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="vggt", seed=0, device=device)
+        # if (resdir / "fast3r-out").exists():
+        #     load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="fast3r", seed=0, device=device)
+        # if (resdir / "vggt-out").exists():
+        #     load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="vggt", seed=0, device=device)
 
 
 def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):

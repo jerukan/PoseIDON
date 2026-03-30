@@ -10,9 +10,7 @@ import cv2
 import dataclass_array as dca
 import numpy as np
 from PIL import Image
-import pyrender
 import quaternion
-import torch
 import trimesh
 import visu3d as v3d
 import yaml
@@ -192,7 +190,7 @@ def render_v3d(cam: v3d.Camera, points: v3d.Point3d, radius=1, background=None) 
 
 def render_models(
     cam: v3d.Camera, meshes: Union[trimesh.Trimesh, List[trimesh.Trimesh]],
-    transforms: v3d.Transform, light_intensity=2.4, flags=pyrender.RenderFlags.NONE, device=None,
+    transforms: v3d.Transform, light_intensity=2.4, flags=None, device=None,
     bg_color=None, wireframe=False,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -206,6 +204,10 @@ def render_models(
     Returns:
         (np.ndarray, np.ndarray, np.ndarray): uint8 color (hxwh3), depth (hxw), mask (hxw)
     """
+    import pyrender
+    import torch
+    if flags is None:
+        flags = pyrender.RenderFlags.NONE
     if torch.cuda.is_available():
         # TODO not sure if this will have consistent behavior when multithreading
         os.environ["PYOPENGL_PLATFORM"] = "egl"
