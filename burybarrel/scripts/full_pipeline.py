@@ -4,6 +4,7 @@ import time
 import traceback
 
 import click
+import torch
 import yaml
 
 from burybarrel import config, get_logger, add_file_handler, log_dir
