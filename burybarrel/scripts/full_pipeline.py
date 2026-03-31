@@ -118,6 +118,8 @@ def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_all=Fa
     if "all" in [n.lower() for n in names]:
         alldatadirs = filter(lambda x: x.is_dir() and (x / "info.json").exists(), datadir.glob("*"))
         names = [x.name for x in alldatadirs]
+        # temporary checkpoint lol
+        names = ['dive8-barrel-14-32', 'dive8-barrel-15-19-09', 'dive8-barrel-16-31', 'dive10-barrel-03-40', 'dive9-barrel-03-17', 'dive8-barrel-13-08', 'dive8-barrel-16-30', 'dive8-barrel-11-33', 'dive6-smokefloat-10-20', 'dive8-barrel-14-37', 'dive8-barrel-10-56', 'dive8-barrel-14-05', 'dive10-barrel-03-55', 'dive8-barrel-15-04', 'dive9-barrel-03-47', 'dive9-barrel-03-45', 'dive8-barrel-15-19-49', 'dive8-barrel-15-09-43', 'barrel1', 'dive8-barrel-15-24', 'dive8-barrel-16-19', 'dive9-barrel-03-13', 'dive8-barrel-15-14', 'dive10-barrel-04-35', 'dive8-barrel-10-24', 'dive9-barrel-04-07', 'dive8-barrel-11-12', 'dive6-smokefloat-10-17-26', 'dive3-depthcharge-03-04', 'dive8-barrel-10-45', 'dive8-barrel-15-50', 'dive3-depthcharge-05-11', 'dive8-barrel-11-04', 'dive10-barrel-03-43', 'dive8-barrel-10-49', 'dive8-barrel-13-07', 'dive8-barrel-16-09', 'barrel2', 'dive9-barrel-03-39', 'dive8-barrel-14-29', 'dive8-barrel-12-55', 'dive8-barrel-13-57', 'dive8-barrel-11-21', 'dive8-barrel-14-51', 'dive8-barrel-16-18']
     # round robin assignment of datasets to devices
     for i, name in enumerate(names):
         devicetaskdict[devices[i % ndevices]].append(name)
@@ -194,3 +196,4 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
             _run_full_pipeline(name, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit)
         except Exception as e:
             logger.error(f"ERROR IN RUNNING {name} with exception: {e}\n{traceback.format_exc()}\nContinuing to next dataset")
+        torch.cuda.empty_cache()
