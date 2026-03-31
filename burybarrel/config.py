@@ -1,9 +1,9 @@
 from pathlib import Path
 
 
-DEFAULT_DATA_DIR = Path("/Volumes/T7/backup/Projects/ms-stuff/barrel-playground/barrels/data/input_data")
-DEFAULT_RESULTS_DIR = Path("/Volumes/T7/backup/Projects/ms-stuff/barrel-playground/barrels/results")
-DEFAULT_MODEL_DIR = Path("/Volumes/T7/backup/Projects/ms-stuff/barrel-playground/models3d")
+DEFAULT_DATA_DIR = Path("/scratch/gilbreth/yan569/barreldata/input_data")
+DEFAULT_RESULTS_DIR = Path("/scratch/gilbreth/yan569/barreldata/results")
+DEFAULT_MODEL_DIR = Path("/scratch/gilbreth/yan569/barreldata/models3d")
 
 # If you have to run colmap reconstruction locally and then run everything else
 # on another machine with CUDA, set this to False.
@@ -18,4 +18,4 @@ else:
     DEFAULT_RESULTS_DIR_LOCAL = Path("results/")
     DEFAULT_MODEL_DIR_LOCAL = Path("../models3d/")
 
-FOUNDPOSE_PYTHON_BIN_PATH = Path("/Users/yan569/miniconda3/envs/foundpose_cpu_311/bin/python")
+FOUNDPOSE_PYTHON_BIN_PATH = Path("/home/yan569/.conda/envs/2025.06-py313/foundpose_gpu_311/bin/python")
