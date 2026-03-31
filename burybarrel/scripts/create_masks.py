@@ -8,6 +8,7 @@ import dill as pickle
 import numpy as np
 from PIL import Image
 from shapely import Polygon
+import torch
 from tqdm import tqdm
 
 from burybarrel.image import imgs_from_dir
