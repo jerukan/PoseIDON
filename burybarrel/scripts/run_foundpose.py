@@ -150,5 +150,5 @@ def _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device
             cwd=repopath, env=env, check=True, stderr=sys.stderr, stdout=sys.stdout
         )
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error with foundpose:\n{e.stderr}")
+        logger.error(f"Error with foundpose:\n{e}")
         raise
