@@ -13,7 +13,7 @@ dependencies:
     - jax==0.5.0
     - jupyter==1.1.1
     - kaleido==0.2.1
-    - git+https://github.com/luca-medeiros/lang-segment-anything.git@3a3868b
+    - git+https://github.com/jerukan/lang-segment-anything.git@e46d38d
     - manifold3d==3.0.1
     - mapbox-earcut==1.0.3
     - matplotlib==3.10.0
