@@ -1,22 +1,20 @@
 import json
-import math
-import os
 from pathlib import Path
-from typing import List
-import sys
 
 import click
-import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
 import pandas as pd
 import tqdm
 import trimesh
 import yaml
 
-from burybarrel import config, get_logger
-from burybarrel.utils import name_idx_from_paths
+from bop_toolkit.bop_toolkit_lib.pose_error import vsd, mssd, mspd
+from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations
+from bop_toolkit.bop_toolkit_lib.renderer import create_renderer
 
+from burybarrel import config, get_logger
+from burybarrel.image import imgs_from_dir
+from burybarrel.utils import name_idx_from_paths
 
 logger = get_logger(__name__)
 
@@ -58,23 +56,15 @@ logger = get_logger(__name__)
     help="choose the best hypothesis with ground truth knowledge (for raw foundpose results) (this will obviously skew to better performance); otherwise, just choose the 0th hypothesis",
 )
 def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
-    import cv2
-    import pycolmap
-    import pyrender
-    import visu3d as v3d
-    from bop_toolkit.bop_toolkit_lib.pose_error import vsd, mssd, mspd
-    from bop_toolkit.bop_toolkit_lib.misc import get_symmetry_transformations, depth_im_to_dist_im_fast
-    from bop_toolkit.bop_toolkit_lib.renderer import create_renderer, Renderer
-    from bop_toolkit.bop_toolkit_lib.visibility import estimate_visib_mask_gt, estimate_visib_mask_est
-    import burybarrel.colmap_util as cutil
-    from burybarrel.image import render_v3d, imgs_from_dir
     # info about rankbest_hyp:
     # if estimations have multiple hypotheses per image, setting this true will choose the
     # best hypothesis with ground truth knowledge (this will obviously skew to better performance)
     # otherwise, just choose the 0th hypothesis
 
+    datadir = Path(datadir)
+    resdir = Path(resdir)
     # refactor?
-    objectdir = objdir
+    objectdir = Path(objdir)
 
     with open(objectdir / "model_info.json", "rt") as f:
         allobjectinfo: dict = json.load(f)
@@ -99,6 +89,9 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             continue
         if not singledatadir.exists():
             logger.info(f"Skipping {dataname} because datadir does not exist")
+            continue
+        if not (singledatadir / "gt_obj2cam.json").exists():
+            logger.info(f"Skipping {dataname} because gt_obj2cam.json does not exist")
             continue
 
         with open(singledatadir / "gt_obj2cam.json", "rt") as f:
@@ -210,7 +203,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "burial_depth_gt": -1,
             "resdir": str(singleresdir / "foundpose-output/inference"),
             "datadir": str(singledatadir),
-            "description": datainfo["description"],
+            "description": datainfo.get("description", ""),
             "lat": datainfo["lat"],
             "lon": datainfo["lon"],
             "depth": datainfo["depth"],
@@ -237,7 +230,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
             "burial_depth_gt": -1,
             "resdir": str(singleresdir / "foundpose-output/inference"),
             "datadir": str(singledatadir),
-            "description": datainfo["description"],
+            "description": datainfo.get("description", ""),
             "lat": datainfo["lat"],
             "lon": datainfo["lon"],
             "depth": datainfo["depth"],
@@ -299,7 +292,7 @@ def get_metrics(datadir, resdir, objdir, rankbest_hyp=False):
                 "burial_depth_gt": float(datainfo["burial_depth"]),
                 "resdir": str(fitdir),
                 "datadir": str(singledatadir),
-                "description": datainfo["description"],
+                "description": datainfo.get("description", ""),
                 "lat": datainfo["lat"],
                 "lon": datainfo["lon"],
                 "depth": datainfo["depth"],
