@@ -1,5 +1,7 @@
 import concurrent.futures
 from pathlib import Path
+import subprocess
+import sys
 import time
 import traceback
 
@@ -8,20 +10,10 @@ import torch
 import yaml
 
 from burybarrel import config, get_logger, add_file_handler, log_dir
-from burybarrel.scripts.create_masks import _create_masks
-from burybarrel.scripts.run_foundpose import _run_foundpose
-from burybarrel.foundpose_fit import load_fit_write
 
 
 logger = get_logger(__name__)
 add_file_handler(logger, log_dir / "fullpipelineruns.log")
-
-
-cuda_count = torch.cuda.device_count()
-if cuda_count > 0:
-    default_devices = [f"cuda:{i}" for i in range(cuda_count)]
-else:
-    default_devices = ["cpu"]
 
 
 @click.command()
@@ -68,7 +60,7 @@ else:
     type=click.STRING,
     help="cuda devices to allocate",
     multiple=True,
-    default=default_devices,
+    default=None,
     show_default=True,
 )
 @click.option(
@@ -111,6 +103,10 @@ def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_all=Fa
 
     TODO: run colmap and openmvs from here too (uh installing openmvs without sudo is hard)
     """
+    import torch
+    if not devices:
+        cuda_count = torch.cuda.device_count()
+        devices = [f"cuda:{i}" for i in range(cuda_count)] if cuda_count > 0 else ["cpu"]
     datadir = Path(datadir)
     resdir = Path(resdir)
     objdir = Path(objdir)
@@ -125,29 +121,39 @@ def run_full_pipelines(names, datadir, resdir, objdir, devices=None, step_all=Fa
     if "all" in [n.lower() for n in names]:
         alldatadirs = filter(lambda x: x.is_dir() and (x / "info.json").exists(), datadir.glob("*"))
         names = [x.name for x in alldatadirs]
+        # temporary checkpoint lol
+        names = ['dive9-barrel-03-45', 'dive8-barrel-15-19-49', 'dive8-barrel-15-09-43', 'barrel1', 'dive8-barrel-15-24', 'dive8-barrel-16-19', 'dive9-barrel-03-13', 'dive8-barrel-15-14', 'dive10-barrel-04-35', 'dive8-barrel-10-24', 'dive9-barrel-04-07', 'dive8-barrel-11-12', 'dive6-smokefloat-10-17-26', 'dive3-depthcharge-03-04', 'dive8-barrel-10-45', 'dive8-barrel-15-50', 'dive3-depthcharge-05-11', 'dive8-barrel-11-04', 'dive10-barrel-03-43', 'dive8-barrel-10-49', 'dive8-barrel-13-07', 'dive8-barrel-16-09', 'barrel2', 'dive9-barrel-03-39', 'dive8-barrel-14-29', 'dive8-barrel-12-55', 'dive8-barrel-13-57', 'dive8-barrel-11-21', 'dive8-barrel-14-51', 'dive8-barrel-16-18']
     # round robin assignment of datasets to devices
     for i, name in enumerate(names):
         devicetaskdict[devices[i % ndevices]].append(name)
     logger.info("DATASETS TO RUN ON EACH GPU:")
     logger.info(devicetaskdict)
-    # ProcessPoolExecutor should make more sense, but it just fucking instantly deadlocks
-    # from SAM imports and everything else and I can't be bothered to figure it out
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(devices)) as executor:
-        future_to_res = {
-            executor.submit(_run_pipelines_gpu, devnames, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit): (device, devnames)
-            for device, devnames in devicetaskdict.items()
-        }
-        for future in concurrent.futures.as_completed(future_to_res):
-            device, devnames = future_to_res[future]
-            try:
-                future.result()
-                logger.info(f"finished datasets {device}")
-            except Exception as e:
-                logger.error(f"exception in {device} for datasets {devnames}: {e}")
+    if len(devices) == 1:
+        # Run directly in the main thread so pyrender/pyglet signal handling works (macOS/MPS)
+        device = devices[0]
+        _run_pipelines_gpu(devicetaskdict[device], datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit)
+        logger.info(f"finished datasets {device}")
+    else:
+        # ProcessPoolExecutor should make more sense, but it just fucking instantly deadlocks
+        # from SAM imports and everything else and I can't be bothered to figure it out
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(devices)) as executor:
+            future_to_res = {
+                executor.submit(_run_pipelines_gpu, devnames, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit): (device, devnames)
+                for device, devnames in devicetaskdict.items()
+            }
+            for future in concurrent.futures.as_completed(future_to_res):
+                device, devnames = future_to_res[future]
+                try:
+                    future.result()
+                    logger.info(f"finished datasets {device}")
+                except Exception as e:
+                    logger.error(f"exception in {device} for datasets {devnames}: {e}")
     logger.info("FINISHED PROCESSING ALL DATASETS")
 
 
 def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):
+    from burybarrel.foundpose_fit import load_fit_write
+    from burybarrel.scripts.run_foundpose import _run_foundpose
     datadir = Path(datadir) / name
     resdir = Path(resdir) / name
     objdir = Path(objdir)
@@ -160,7 +166,21 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
     maskdir = resdir / "sam-masks"
     if step_mask:
         mask_t0 = time.time()
-        _create_masks(imgdir, text_prompt, maskdir, closekernelsize=5, convexhull=True, device=device)
+        runcmd = [
+            sys.executable, "-m", "burybarrel", "create-masks",
+            "-i", str(imgdir),
+            "-p", text_prompt,
+            "-o", str(maskdir),
+            "--closekernel", "5",
+            "--convexhull",
+        ]
+        if device is not None:
+            runcmd += ["-d", device]
+        try:
+            subprocess.run(runcmd, check=True, stderr=sys.stderr, stdout=sys.stdout)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error with create-masks:\n{e}")
+            raise
         mask_t1 = time.time()
         logger.info(f"Mask creation for dataset {name} took {mask_t1 - mask_t0:.2f} seconds")
     if step_foundpose:
@@ -174,10 +194,10 @@ def _run_full_pipeline(name, datadir, resdir, objdir, device=None, step_mask=Fal
         load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="colmap", seed=0, device=device, save_figs=True)
         fit_t1 = time.time()
         logger.info(f"Multiview fitting for dataset {name} took {fit_t1 - fit_t0:.2f} seconds")
-        if (resdir / "fast3r-out").exists():
-            load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="fast3r", seed=0, device=device)
-        if (resdir / "vggt-out").exists():
-            load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="vggt", seed=0, device=device)
+        # if (resdir / "fast3r-out").exists():
+        #     load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="fast3r", seed=0, device=device)
+        # if (resdir / "vggt-out").exists():
+        #     load_fit_write(datadir, resdir, objdir, use_coarse=True, use_icp=True, reconstr_type="vggt", seed=0, device=device)
 
 
 def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=False, step_foundpose=False, step_fit=False):
@@ -192,3 +212,5 @@ def _run_pipelines_gpu(names, datadir, resdir, objdir, device=None, step_mask=Fa
             _run_full_pipeline(name, datadir, resdir, objdir, device=device, step_mask=step_mask, step_foundpose=step_foundpose, step_fit=step_fit)
         except Exception as e:
             logger.error(f"ERROR IN RUNNING {name} with exception: {e}\n{traceback.format_exc()}\nContinuing to next dataset")
+        finally:
+            torch.cuda.empty_cache()

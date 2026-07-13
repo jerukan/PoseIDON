@@ -7,7 +7,6 @@ import cv2
 import numpy as np
 from PIL import Image
 import plotly.graph_objects as go
-import pyrender
 from tqdm import tqdm
 import transforms3d as t3d
 import trimesh
@@ -101,6 +100,7 @@ def gt_from_blender(names, datadir, resdir, objdir, render_overlays, overwrite):
 
 
 def generate_gt_single(name, datadir, resdir, objdir, render_overlays=True, overwrite=True):
+    import pyrender
     datadir = Path(datadir) / name
     resdir = Path(resdir) / name
     camposes_path = resdir / "colmap-out/cam_poses.json"

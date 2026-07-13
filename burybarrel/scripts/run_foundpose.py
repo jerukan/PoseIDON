@@ -1,10 +1,15 @@
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 import click
-import torch
 import yaml
+
+from burybarrel import config, get_logger
+
+
+logger = get_logger(__name__)
 
 
 @click.command()
@@ -40,6 +45,7 @@ import yaml
     "--pythonbin",
     "pythonbinpath",
     required=False,
+    default=config.FOUNDPOSE_PYTHON_BIN_PATH,
     type=click.Path(exists=True, file_okay=True),
     help="Path to Python binary (activate your virutal environment and do `which python`)"
 )
@@ -49,17 +55,48 @@ import yaml
     "device",
     type=click.STRING,
 )
-def run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device=None):
-    _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=pythonbinpath, device=device)
+@click.option(
+    "--gen-templates",
+    "gen_templates",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Generate render templates",
+)
+@click.option(
+    "--gen-repre",
+    "gen_repre",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Generate BoW representations for templates",
+)
+@click.option(
+    "--infer",
+    "_infer",
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Run inference on a dataset",
+)
+def run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device=None, gen_templates=False, gen_repre=False, _infer=False):
+    _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=pythonbinpath, device=device, gen_templates=gen_templates, gen_repre=gen_repre, _infer=_infer)
 
-def _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device=None):
+def _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device=None, gen_templates=False, gen_repre=False, _infer=False):
     """
     Run from a modified foundpose repo from here to generate foundpose output in the
     desired file structure.
 
     And reduce the clutter of configs in foundpose probably.
     """
+    if not (gen_templates or gen_repre or _infer):
+        logger.warning("No steps selected to run. Assuming you want to run everything.")
+        gen_templates = True
+        gen_repre = True
+        _infer = True
+
     if device is None:
+        import torch
         device = "cuda" if torch.cuda.is_available() else "cpu"
     datadir = Path(datadir)
     resdir = Path(resdir)
@@ -98,9 +135,20 @@ def _run_foundpose(datadir, resdir, objdir, repopath, pythonbinpath=None, device
         pycmd = str(pythonbinpath)
     else:
         pycmd = "python"
-    runcmd = [pycmd, "scripts/pipeline.py", "--cfg", str(newcfgpath), "--gen-templates", "--gen-repre", "--infer"]
+    runcmd = [pycmd, "scripts/pipeline.py", "--cfg", str(newcfgpath)]
+    if gen_templates:
+        runcmd.append("--gen-templates")
+    if gen_repre:
+        runcmd.append("--gen-repre")
+    if _infer:
+        runcmd.append("--infer")
+    # runcmd = [pycmd, "scripts/pipeline.py", "--cfg", str(newcfgpath), "--gen-templates", "--gen-repre", "--infer"]
     # runcmd = [pycmd, "scripts/pipeline.py", "--cfg", str(newcfgpath), "--infer"]
-    subprocess.run(
-        runcmd,
-        cwd=repopath, env=env, check=True
-    )
+    try:
+        subprocess.run(
+            runcmd,
+            cwd=repopath, env=env, check=True, stderr=sys.stderr, stdout=sys.stdout
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error with foundpose:\n{e}")
+        raise

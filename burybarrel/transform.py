@@ -7,7 +7,6 @@ import numpy as np
 from numpy.typing import NDArray
 import quaternion
 from sklearn.neighbors import KDTree
-import torch
 import transforms3d as t3d
 import visu3d as v3d
 
@@ -160,6 +159,7 @@ def rotate_pts_to_ax(pts, normal, target, ret_R=False):
 
 
 def rotate_pts_to_ax_torch(pts, normal, target):
+    import torch
     """Given a point cloud with normal vector, rotate it such that the new normal matches the target vector
     Args:
                 pts: (torch.tensor) [N, 3] point cloud

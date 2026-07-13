@@ -8,6 +8,7 @@ import dill as pickle
 import numpy as np
 from PIL import Image
 from shapely import Polygon
+import torch
 from tqdm import tqdm
 
 from burybarrel.image import imgs_from_dir
@@ -215,3 +216,7 @@ def _create_masks(imgdir, text_prompt, outdir, box_threshold=0.3, text_threshold
         pickle.dump(bboxes, f)
     with open(outdir / "masksinfo.json", "wt") as f:
         json.dump(allmasksinfo, f, indent=4)
+    
+    del sam_model
+    del langsam_model
+    torch.cuda.empty_cache()
