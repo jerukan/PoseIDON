@@ -1,4 +1,4 @@
-# Leveraging 6DoF Pose Foundation Models For Mapping Marine Sediment Burial
+# PoseIDON: 6DoF pose estimation with foundation model features for marine sediment burial mapping
 
 Authors: Jerry Yan, Chinmay Talegaonkar, Nicholas Antipa, Eric Terrill, Sophia Merrifield
 
