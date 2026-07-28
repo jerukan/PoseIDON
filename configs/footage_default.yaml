@@ -1,0 +1,24 @@
+# footage info for extracting keyframes and corresponding nav data per frame
+default:
+  input_path: ~
+  output_dir: data/input_data
+  start_time: ~
+  timezone: US/Pacific
+  step: ~
+  navpath: ~
+  # crop: [0, 120, 1920, 875]
+  crop: ~
+  maskpaths: [data/dive-data/footage-mask-hud.png]
+  fps: 25
+  increase_contrast: False
+  denoise_depth: True
+  object_name: ~
+  description: ~
+
+footage-name:
+  input_path: path/to/footage.mp4
+  start_time: 2023-01-01T00:00:00
+  step: 25
+  navpath: path/to/nav.csv
+  object_name: path/to/object/cad.ply
+  description: description of scene
