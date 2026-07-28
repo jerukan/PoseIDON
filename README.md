@@ -2,11 +2,17 @@
 
 Authors: Jerry Yan, Chinmay Talegaonkar, Nicholas Antipa, Eric Terrill, Sophia Merrifield
 
+Published to the ISPRS Journal of Photogrammetry and Remote Sensing (2026).
+
 PoseIDON: **Pose** **I**dentification for **D**epth of **O**bjects via foundation model **N**etworks.
 
 This repository contains the associated code for my thesis and paper of the same name.
 
-The following are links to the [thesis](https://www.proquest.com/dissertations-theses/leveraging-6dof-pose-foundation-models-mapping/docview/3226985070/se-2?accountid=14524) and [preprint](https://arxiv.org/abs/2506.10386).
+The following are links to the [thesis](https://www.proquest.com/dissertations-theses/leveraging-6dof-pose-foundation-models-mapping/docview/3226985070/se-2?accountid=14524), [arXiv](https://arxiv.org/abs/2506.10386), and [paper](https://www.sciencedirect.com/science/article/pii/S0924271626003382).
+
+## Sample data download
+
+Find a sample of the datasets used in the paper at the following [download link](https://drive.google.com/drive/folders/16PTu4ZkgkVIt6lY1XPQzU3qyW280G-qV?usp=drive_link).
 
 ## Environment setup
 
